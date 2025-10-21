@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'widgets/clock_logo.dart';
 import '../../widgets/login_text.dart';   // keep this
+import '../../routes.dart';
 
 
 class WelcomePage2 extends StatelessWidget {
@@ -40,10 +41,9 @@ class WelcomePage2 extends StatelessWidget {
                 width: 250,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: () {
-                    debugPrint('Get Started tapped');
+                  onPressed: () => Navigator.pushNamed(context, AppRoutes.signup),
                     // later: Navigator.pushNamed(context, AppRoutes.signup);
-                  },
+                  
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF39C50),
                     foregroundColor: Colors.white,
