@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../routes.dart';
 
 class NeedHelpPage extends StatelessWidget {
   const NeedHelpPage({super.key});
@@ -72,8 +73,18 @@ class NeedHelpPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () => debugPrint('Open filters'),
+                   IconButton(
+                      onPressed: () async {
+                        final result = await Navigator.pushNamed(
+                          context,
+                          AppRoutes.needHelpFilter,
+                        );
+
+                        if (result != null) {
+                          // TODO: handle result (filter your list)
+                          debugPrint('Filter result: $result');
+                        }
+                      },
                       icon: const Icon(Icons.tune),
                       tooltip: 'Filters',
                       style: IconButton.styleFrom(
@@ -81,6 +92,7 @@ class NeedHelpPage extends StatelessWidget {
                         padding: const EdgeInsets.all(12),
                       ),
                     ),
+
                   ],
                 ),
               ),
