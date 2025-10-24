@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../welcome/widgets/clock_logo.dart';
+import '../../routes.dart';
+
 
 class CreateProfilePage extends StatefulWidget {
   const CreateProfilePage({super.key});
@@ -87,8 +89,9 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                     child: ElevatedButton(
                       onPressed: (){
                         if (_formKey.currentState?.validate() ?? false) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Profile created (UI only)')));
+                          //ScaffoldMessenger.of(context).showSnackBar(
+                            //const SnackBar(content: Text('Profile created (UI only)')));//
+                            Navigator.pushReplacementNamed(context, AppRoutes.home);
                         }
                       },
                       style: ElevatedButton.styleFrom(

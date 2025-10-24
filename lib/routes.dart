@@ -4,6 +4,8 @@ import 'screens/welcome/welcome_page_2.dart';
 import 'screens/auth/signup_page.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/profile/create_profile_page.dart';
+import 'screens/home/home_page.dart';
+import 'screens/need_help/need_help_page.dart';
 
 class AppRoutes {
   static const welcome = '/';
@@ -11,6 +13,8 @@ class AppRoutes {
   static const signup = '/signup'; 
   static const login     = '/login';
   static const createProfile = '/create-profile';
+  static const home = '/home';
+  static const needHelp = '/need-help';
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -24,6 +28,10 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const LoginPage());
       case createProfile:
         return MaterialPageRoute(builder: (_) => const CreateProfilePage());
+      case home: 
+        return MaterialPageRoute(builder: (_) => const HomePage());
+      case needHelp:
+        return MaterialPageRoute(builder: (_) => const NeedHelpPage());
       default:      
         return MaterialPageRoute(builder: (_) => const WelcomePage());
     }

@@ -86,8 +86,9 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: (){
                         if (_formKey.currentState?.validate() ?? false) {
                           // For now: just show a message. Later: Firebase login.
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Login (UI only)')));
+                         // ScaffoldMessenger.of(context).showSnackBar(
+                            //const SnackBar(content: Text('Login (UI only)')));//
+                            Navigator.pushReplacementNamed(context, AppRoutes.home);
                         }
                       },
                       style: ElevatedButton.styleFrom(
