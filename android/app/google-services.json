@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "288606253317",
+    "project_id": "timeswap-eb7a3",
+    "storage_bucket": "timeswap-eb7a3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:288606253317:android:ac0575badc981f300a076c",
+        "android_client_info": {
+          "package_name": "com.example.timeswap"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDe5Gyw6prZIPGOwumSlZx8JBfB9Kq5xVs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

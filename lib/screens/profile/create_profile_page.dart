@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
-import '../welcome/widgets/clock_logo.dart';
-import '../../routes.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
+import '../welcome/widgets/clock_logo.dart';
+import 'package:timeswap/routes.dart';
 
 class CreateProfilePage extends StatefulWidget {
   const CreateProfilePage({super.key});
+
   @override
   State<CreateProfilePage> createState() => _CreateProfilePageState();
 }
@@ -14,7 +17,11 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   final _about = TextEditingController();
   final _skills = TextEditingController();
   String? _location; // dropdown
-  // image picker comes later (backend)
+
+  final _auth = FirebaseAuth.instance;
+  final _firestore = FirebaseFirestore.instance;
+
+  bool _saving = false;
 
   @override
   void dispose() {
@@ -23,12 +30,67 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     super.dispose();
   }
 
+  Future<void> _saveProfile() async {
+    // 1) Validate form
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    if (_location == null || _location!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select your location')),
+      );
+      return;
+    }
+
+    // 2) Get current user
+    final user = _auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No logged-in user. Please log in again.')),
+      );
+      Navigator.pushReplacementNamed(context, AppRoutes.login);
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    try {
+      final now = FieldValue.serverTimestamp();
+
+      // 3) Save to Firestore: users/<uid>
+      await _firestore.collection('users').doc(user.uid).set({
+        'uid': user.uid,
+        'email': user.email,
+        'about': _about.text.trim(),
+        'skills': _skills.text.trim(),
+        'location': _location,
+        'createdAt': now,
+        'updatedAt': now,
+      }, SetOptions(merge: true)); // merge so we don’t wipe anything else
+
+      if (!mounted) return;
+
+      // 4) Go to Home after success
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile saved successfully')),
+      );
+      Navigator.pushReplacementNamed(context, AppRoutes.home);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save profile: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
       appBar: AppBar(
-        backgroundColor: Colors.transparent, elevation: 0,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         title: const Text('Create Profile'),
         centerTitle: true,
       ),
@@ -37,9 +99,11 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
           padding: const EdgeInsets.symmetric(horizontal: 20),
           children: [
             const SizedBox(height: 4),
-            Text('Let other people know more about you!',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.black.withOpacity(0.6))),
+            Text(
+              'Let other people know more about you!',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.black.withOpacity(0.6)),
+            ),
             const SizedBox(height: 16),
 
             Form(
@@ -52,20 +116,22 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                     controller: _about,
                     maxLines: 3,
                     decoration: _input('Write a short bio'),
-                    validator: (v)=> (v==null || v.trim().isEmpty) ? 'Please write a bio' : null,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Please write a bio' : null,
                   ),
 
-                  _label('Where do you stayed?'),
+                  _label('Where do you stay?'),
                   _LocationDropdown(
                     value: _location,
-                    onChanged: (v)=>setState(()=>_location=v),
+                    onChanged: (v) => setState(() => _location = v),
                   ),
 
                   _label('What kind of skill you can offer?'),
                   TextFormField(
                     controller: _skills,
                     decoration: _input('e.g., Math tutoring, Cooking'),
-                    validator: (v)=> (v==null || v.trim().isEmpty) ? 'Enter at least one skill' : null,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Enter at least one skill' : null,
                   ),
 
                   _label('Add your profile picture (optional)'),
@@ -74,10 +140,12 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                     decoration: _input('Tap to choose image').copyWith(
                       suffixIcon: IconButton(
                         icon: const Icon(Icons.upload),
-                        onPressed: (){
-                          // later: open image picker
+                        onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Image picker coming soon')));
+                            const SnackBar(
+                              content: Text('Image picker coming soon'),
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -87,13 +155,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: (){
-                        if (_formKey.currentState?.validate() ?? false) {
-                          //ScaffoldMessenger.of(context).showSnackBar(
-                            //const SnackBar(content: Text('Profile created (UI only)')));//
-                            Navigator.pushReplacementNamed(context, AppRoutes.home);
-                        }
-                      },
+                      onPressed: _saving ? null : _saveProfile,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF39C50),
                         foregroundColor: Colors.white,
@@ -101,8 +163,19 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                           borderRadius: BorderRadius.circular(28),
                         ),
                       ),
-                      child: const Text('Create Profile',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: _saving
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text(
+                              'Create Profile',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
                     ),
                   ),
 
@@ -119,50 +192,80 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   }
 
   Widget _label(String t) => Padding(
-    padding: const EdgeInsets.only(bottom: 6, top: 12),
-    child: Text(t, style: const TextStyle(fontWeight: FontWeight.w600)),
-  );
+        padding: const EdgeInsets.only(bottom: 6, top: 12),
+        child: Text(
+          t,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      );
 
   InputDecoration _input(String hint) => InputDecoration(
-    hintText: hint,
-    filled: true, fillColor: Colors.white,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-    enabledBorder: const OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(12)),
-      borderSide: BorderSide(color: Colors.black12)),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: Colors.orange.shade300, width: 1.5)),
-  );
+        hintText: hint,
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: const OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: Colors.black12),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.orangeAccent, width: 1.5),
+        ),
+      );
 }
 
 // location dropdown widget
 class _LocationDropdown extends StatelessWidget {
   final String? value;
   final ValueChanged<String?> onChanged;
-  const _LocationDropdown({required this.value, required this.onChanged});
+
+  const _LocationDropdown({
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     final options = <String>[
-      'Johor', 'Kedah', 'Kelantan', 'Melaka', 'Negeri Sembilan',
-      'Pahang', 'Perak', 'Perlis', 'Penang', 'Sabah', 'Sarawak', 'Selangor', 'Terengganu', 'Kuala Lumpur'
+      'Johor',
+      'Kedah',
+      'Kelantan',
+      'Melaka',
+      'Negeri Sembilan',
+      'Pahang',
+      'Perak',
+      'Perlis',
+      'Penang',
+      'Sabah',
+      'Sarawak',
+      'Selangor',
+      'Terengganu',
+      'Kuala Lumpur',
     ];
+
     return DropdownButtonFormField<String>(
       value: value,
-      items: options.map((e)=>DropdownMenuItem(value: e, child: Text(e))).toList(),
+      items: options
+          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+          .toList(),
       onChanged: onChanged,
       decoration: InputDecoration(
-        filled: true, fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         enabledBorder: const OutlineInputBorder(
           borderRadius: BorderRadius.all(Radius.circular(12)),
-          borderSide: BorderSide(color: Colors.black12)),
+          borderSide: BorderSide(color: Colors.black12),
+        ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.orange.shade300, width: 1.5)),
+          borderSide: BorderSide(color: Colors.orangeAccent, width: 1.5),
+        ),
       ),
       hint: const Text('Select your location'),
     );

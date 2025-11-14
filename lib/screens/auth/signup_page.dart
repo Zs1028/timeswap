@@ -1,6 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:timeswap/services/auth_service.dart';
+import 'package:timeswap/routes.dart';
 import 'package:flutter/material.dart';
 import '../welcome/widgets/clock_logo.dart'; // or swap for your image logo
-import '../../routes.dart';
+
 
 class SignupPage extends StatefulWidget {
   const SignupPage({super.key});
@@ -20,6 +23,10 @@ class _SignupPageState extends State<SignupPage> {
   bool _obscurePass = true;
   bool _obscureConfirm = true;
 
+  //backend objects
+  final _authService = AuthService();
+  bool _loading = false;
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -29,6 +36,46 @@ class _SignupPageState extends State<SignupPage> {
     _confirmCtrl.dispose();
     super.dispose();
   }
+
+    Future<void> _handleSignup() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final email = _emailCtrl.text.trim();
+    final password = _passCtrl.text.trim();
+    final confirm = _confirmCtrl.text.trim();
+
+    if (password != confirm) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match')),
+      );
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final user = await _authService.signUp(email, password);
+
+      if (!mounted) return;
+
+      if (user != null) {
+        // ✅ later we'll save name/phone in Firestore on create profile page
+        Navigator.pushReplacementNamed(context, AppRoutes.createProfile);
+      }
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Sign up failed')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -131,16 +178,7 @@ class _SignupPageState extends State<SignupPage> {
                   SizedBox(
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
-                        if (_formKey.currentState?.validate() ?? false) {
-                          // No backend yet; just show a message
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Account created (UI only)')),
-                          );
-                          //navigate to create profile
-                          Navigator.pushNamed(context, AppRoutes.createProfile);
-                        }
-                      },
+                      onPressed: _loading ? null : _handleSignup,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFFF39C50),
                         foregroundColor: Colors.white,
@@ -148,8 +186,16 @@ class _SignupPageState extends State<SignupPage> {
                           borderRadius: BorderRadius.circular(28),
                         ),
                       ),
-                      child: const Text('Create Account',
-                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      child: _loading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text(
+                          'Create Account',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
                     ),
                   ),
                   const SizedBox(height: 16),
