@@ -1,114 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../routes.dart';
+import '../../models/service_model.dart';
+import 'service_details_page.dart';
 
 class NeedHelpPage extends StatelessWidget {
   const NeedHelpPage({super.key});
 
+  // TEMP user id – later replace with FirebaseAuth uid
+  static const String currentUserId = 'demoUser123';
+
   @override
   Widget build(BuildContext context) {
+    // All OPEN services (for Services Available tab)
+    final servicesAvailableQuery = FirebaseFirestore.instance
+        .collection('services')
+        .where('serviceStatus', isEqualTo: 'open')
+        .orderBy('createdDate', descending: true)
+        .withConverter<Service>(
+          fromFirestore: (snap, _) => Service.fromFirestore(snap),
+          toFirestore: (service, _) => {},
+        );
+
+    // Only MY requests (for Your Request tab)
+    final yourRequestsQuery = FirebaseFirestore.instance
+        .collection('services')
+        .where('requesterId', isEqualTo: currentUserId)
+        .orderBy('createdDate', descending: true)
+        .withConverter<Service>(
+          fromFirestore: (snap, _) => Service.fromFirestore(snap),
+          toFirestore: (service, _) => {},
+        );
+
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: Scaffold(
         backgroundColor: const Color(0xFFFFF4D1),
         appBar: AppBar(
           backgroundColor: const Color(0xFFFFF4D1),
           elevation: 0,
-          toolbarHeight: 0, // hide normal appbar height; we draw our own segmented header
+          toolbarHeight: 0,
         ),
         body: SafeArea(
           child: Column(
             children: [
               const SizedBox(height: 8),
-
-              // Segmented header (Help Available | Your Request | Helper Application)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFADF8E),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
-                  child: TabBar(
-                    labelPadding: const EdgeInsets.symmetric(vertical: 8),
-                    indicatorSize: TabBarIndicatorSize.label,
-                    labelColor: Colors.black87,
-                    unselectedLabelColor: Colors.black54,
-                    indicator: const _RoundedUnderlineIndicator(),
-                    tabs: const [
-                      Text('Help Available'),
-                      Text('Your Request'),
-                      Text('Helper Application'),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Search + filter row
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: 'Search Services',
-                          prefixIcon: const Icon(Icons.search),
-                          filled: true,
-                          fillColor: Colors.white,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.black12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: Colors.black12),
-                          ),
-                        ),
-                        onChanged: (q) {
-                          // later: filter list
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                   IconButton(
-                      onPressed: () async {
-                        final result = await Navigator.pushNamed(
-                          context,
-                          AppRoutes.needHelpFilter,
-                        );
-
-                        if (result != null) {
-                          // TODO: handle result (filter your list)
-                          debugPrint('Filter result: $result');
-                        }
-                      },
-                      icon: const Icon(Icons.tune),
-                      tooltip: 'Filters',
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        padding: const EdgeInsets.all(12),
-                      ),
-                    ),
-
-                  ],
-                ),
-              ),
-
-              // Tabs content
+              _headerTabs(),
+              _searchAndFilterRow(context),
               Expanded(
                 child: TabBarView(
                   children: [
-                    // 1) Help Available
-                    _ServicesList(dummyServices),
+                    // 1) Services Available – hide my own requests
+                    _ServicesList(
+                      query: servicesAvailableQuery,
+                      hideOwn: true,
+                    ),
 
-                    // 2) Your Request (placeholder for now)
-                    _ServicesList(dummyRequests),
-
-                    // 3) Helper Application (placeholder for now)
-                    _ServicesList(dummyApplications),
+                    // 2) Your Request – only my requests + Add Request button
+                    _YourRequestTab(query: yourRequestsQuery),
                   ],
                 ),
               ),
@@ -118,20 +68,97 @@ class NeedHelpPage extends StatelessWidget {
       ),
     );
   }
+
+  Widget _headerTabs() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFADF8E),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.fromLTRB(8, 12, 8, 0),
+        child: const TabBar(
+          labelPadding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          indicatorSize: TabBarIndicatorSize.label,
+          labelColor: Colors.black87,
+          unselectedLabelColor: Colors.black54,
+          indicator: _RoundedUnderlineIndicator(),
+          tabs: [
+            Text('Services Available'),
+            Text('Your Request'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _searchAndFilterRow(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search Services',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.black12),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.black12),
+                ),
+              ),
+              onChanged: (q) {
+                // later: client-side filtering
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            onPressed: () async {
+              final result = await Navigator.pushNamed(
+                context,
+                AppRoutes.needHelpFilter,
+              );
+              if (result != null) debugPrint('Filter result: $result');
+            },
+            icon: const Icon(Icons.tune),
+            tooltip: 'Filters',
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              padding: const EdgeInsets.all(12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-/// Nice rounded underline for the active tab (to match your Figma)
+/// Rounded underline for active tab
 class _RoundedUnderlineIndicator extends Decoration {
   const _RoundedUnderlineIndicator();
 
   @override
-  BoxPainter createBoxPainter([VoidCallback? onChanged]) => _RoundedUnderlinePainter();
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _RoundedUnderlinePainter();
 }
 
 class _RoundedUnderlinePainter extends BoxPainter {
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration cfg) {
-    final rect = Offset(offset.dx, cfg.size!.height - 3) & Size(cfg.size!.width, 3);
+    if (cfg.size == null) return;
+    final rect = Offset(offset.dx, cfg.size!.height - 3) &
+        Size(cfg.size!.width, 3);
     final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(2));
     final paint = Paint()
       ..color = Colors.black87
@@ -140,32 +167,106 @@ class _RoundedUnderlinePainter extends BoxPainter {
   }
 }
 
-/// List of services (reusable for each tab)
-class _ServicesList extends StatelessWidget {
-  final List<Service> items;
-  const _ServicesList(this.items);
+/// Your Request tab: list + Add Request button
+class _YourRequestTab extends StatelessWidget {
+  final Query<Service> query;
+  const _YourRequestTab({required this.query});
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemBuilder: (context, i) => _ServiceCard(service: items[i]),
+    return Column(
+      children: [
+        Expanded(
+          child: _ServicesList(query: query),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, AppRoutes.addRequest);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF39C50),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              child: const Text(
+                'Add Request',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// One service card (UI only for now)
+/// Uses a Firestore stream to show services
+class _ServicesList extends StatelessWidget {
+  final Query<Service> query;
+  final bool hideOwn; // NEW
+
+  const _ServicesList({
+    required this.query,
+    this.hideOwn = false, // default: don't hide
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot<Service>>(
+      stream: query.snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        var services = docs.map((d) => d.data()).toList();
+
+        // hide my own services, for Services Available tab
+        if (hideOwn) {
+          services = services
+              .where((s) => s.requesterId != NeedHelpPage.currentUserId)
+              .toList();
+        }
+
+        if (services.isEmpty) {
+          return const Center(child: Text('No services yet.'));
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          itemCount: services.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, i) => _ServiceCard(service: services[i]),
+        );
+      },
+    );
+  }
+}
+
+/// Card UI – using Service from Firestore
 class _ServiceCard extends StatelessWidget {
   final Service service;
   const _ServiceCard({required this.service});
 
-  Color _statusColor(String s) {
+  Color _statusBg(String s) {
     switch (s.toLowerCase()) {
-      case 'open': return const Color(0xFFBFE8C9);     // greenish
-      case 'pending': return const Color(0xFFFBE1B8);  // orange-ish
-      default: return Colors.grey.shade300;
+      case 'open':
+        return const Color(0xFFBFE8C9);
+      case 'pending':
+        return const Color(0xFFFBE1B8);
+      default:
+        return Colors.grey.shade300;
     }
   }
 
@@ -177,32 +278,51 @@ class _ServiceCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 8, offset: Offset(0, 4))],
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 8,
+              offset: Offset(0, 4),
+            ),
+          ],
         ),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => debugPrint('Open ${service.title}'),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ServiceDetailsPage(service: service),
+              ),
+            );
+          },
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Column(
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title + Status + Category
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: RichText(
+                // LEFT COLUMN
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RichText(
                         text: TextSpan(
-                          text: 'Offer Help: ',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          text: 'Need Help: ',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
                                 color: Colors.blue.shade700,
                                 fontWeight: FontWeight.w700,
                               ),
                           children: [
                             TextSpan(
-                              text: service.title,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              text: service.serviceTitle,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
                                     color: Colors.black87,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -210,30 +330,78 @@ class _ServiceCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
+                      const SizedBox(height: 8),
+                      _iconText(Icons.person_outline, service.providerName),
+                      const SizedBox(height: 2),
+                      _iconText(Icons.place_outlined, service.location),
+                      const SizedBox(height: 2),
+                      _iconText(Icons.access_time, service.availableTiming),
+                      const SizedBox(height: 2),
+                      _iconText(Icons.hourglass_bottom,
+                          'Within ${service.timeLimitDays} days'),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // RIGHT COLUMN
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: _statusColor(service.status),
+                        color: _statusBg(service.serviceStatus),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Text(service.status, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      child: Text(
+                        service.serviceStatus,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  children: [
-                    _iconText(Icons.person_outline, service.name),
-                    _iconText(Icons.place_outlined, service.location),
-                    _iconText(Icons.event, service.schedule),
-                    _iconText(Icons.hourglass_bottom, 'Within ${service.withinDays} days'),
-                    _chip(service.category),
-                    _credits(service.credits),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        service.category,
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.hourglass_empty, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${service.creditsPerHour} credits',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -250,130 +418,13 @@ class _ServiceCard extends StatelessWidget {
       children: [
         Icon(icon, size: 16, color: Colors.black87),
         const SizedBox(width: 4),
-        Text(text, style: const TextStyle(color: Colors.black87)),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(color: Colors.black87, fontSize: 13),
+          ),
+        ),
       ],
     );
   }
-
-  Widget _chip(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(label, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.w600)),
-    );
-  }
-
-  Widget _credits(int value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.hourglass_empty, size: 16),
-          const SizedBox(width: 4),
-          Text('$value credits', style: const TextStyle(fontWeight: FontWeight.w600)),
-        ],
-      ),
-    );
-  }
 }
-
-/// Simple data model (dummy)
-class Service {
-  final String title;
-  final String name;
-  final String location;
-  final String schedule;  // e.g. 'Weekdays 9AM - 11AM' or 'Flexible Timing'
-  final int withinDays;   // e.g. 7
-  final String status;    // 'Pending' | 'Open'
-  final String category;  // e.g. 'Transportation'
-  final int credits;
-
-  const Service({
-    required this.title,
-    required this.name,
-    required this.location,
-    required this.schedule,
-    required this.withinDays,
-    required this.status,
-    required this.category,
-    required this.credits,
-  });
-}
-
-// ---------- Dummy lists ----------
-const dummyServices = <Service>[
-  Service(
-    title: 'go to airport',
-    name: 'Jane',
-    location: 'Setapak',
-    schedule: 'Weekdays 9AM - 11AM',
-    withinDays: 7,
-    status: 'Pending',
-    category: 'Transportation',
-    credits: 3,
-  ),
-  Service(
-    title: 'Garden Clean Up',
-    name: 'Ahmad Rahman',
-    location: 'Wangsa Maju',
-    schedule: 'Every Saturday Morning',
-    withinDays: 3,
-    status: 'Pending',
-    category: 'Home Services',
-    credits: 2,
-  ),
-  Service(
-    title: 'Basic Computer Skills Tutorial',
-    name: 'Kumar Devi',
-    location: 'Selayang Community Center',
-    schedule: 'Flexible Timing',
-    withinDays: 10,
-    status: 'Open',
-    category: 'Education',
-    credits: 5,
-  ),
-  Service(
-    title: 'Haircut for Senior',
-    name: 'Joanne Cheng',
-    location: 'Kepong area',
-    schedule: 'Weekdays 9AM - 11AM',
-    withinDays: 7,
-    status: 'Open',
-    category: 'Elderly Support',
-    credits: 3,
-  ),
-];
-
-const dummyRequests = <Service>[
-  Service(
-    title: 'Fix leaky faucet',
-    name: 'You',
-    location: 'Gombak',
-    schedule: 'Weekend Afternoon',
-    withinDays: 2,
-    status: 'Pending',
-    category: 'Home Services',
-    credits: 2,
-  ),
-];
-
-const dummyApplications = <Service>[
-  Service(
-    title: 'Tutor form submitted',
-    name: 'You',
-    location: '—',
-    schedule: '—',
-    withinDays: 0,
-    status: 'Open',
-    category: 'Education',
-    credits: 0,
-  ),
-];

@@ -7,6 +7,8 @@ import 'screens/profile/create_profile_page.dart';
 import 'screens/home/home_page.dart';
 import 'screens/need_help/need_help_page.dart';
 import 'screens/need_help/filter_page.dart';
+import 'screens/need_help/add_request_page.dart';
+
 
 
 class AppRoutes {
@@ -18,6 +20,7 @@ class AppRoutes {
   static const home = '/home';
   static const needHelp = '/need-help';
   static const needHelpFilter = '/need-help/filter';
+  static const addRequest = '/add-request';
 
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -41,6 +44,8 @@ class AppRoutes {
           opaque: false,
           barrierColor: Colors.black54,
           pageBuilder: (_, __, ___) => const NeedHelpFiltersPage(),);
+          case addRequest:
+          return MaterialPageRoute(builder: (_) => const AddRequestPage());
       default:      
         return MaterialPageRoute(builder: (_) => const WelcomePage());
     }
