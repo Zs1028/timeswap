@@ -16,6 +16,11 @@ class ServiceDetailsPage extends StatelessWidget {
     final durationText = '2 hours estimated'; // TODO: store in Firestore later
     final timeCreditsText = '${service.creditsPerHour} credits / hour';
 
+    //decide if user can request
+    final bool isMyRequest = service.requesterId == currentUserId;
+    final bool canRequest =
+        !isMyRequest && service.serviceStatus.toLowerCase() == 'open';
+
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
       appBar: AppBar(
@@ -53,7 +58,7 @@ class ServiceDetailsPage extends StatelessWidget {
                 ],
               ),
             ),
-            _bottomRequestButton(context),
+             if (canRequest) _bottomRequestButton(context),
           ],
         ),
       ),

@@ -100,6 +100,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
         // helper/provider not chosen yet
         'providerId': '',
         'providerName': '',
+        'serviceType' : 'need',
         'createdDate': FieldValue.serverTimestamp(),
       });
 

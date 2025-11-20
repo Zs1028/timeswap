@@ -16,6 +16,7 @@ class NeedHelpPage extends StatelessWidget {
     // All OPEN services (for Services Available tab)
     final servicesAvailableQuery = FirebaseFirestore.instance
         .collection('services')
+        .where('serviceType', isEqualTo: 'need')
         .where('serviceStatus', isEqualTo: 'open')
         .orderBy('createdDate', descending: true)
         .withConverter<Service>(
@@ -26,6 +27,7 @@ class NeedHelpPage extends StatelessWidget {
     // Only MY requests (for Your Request tab)
     final yourRequestsQuery = FirebaseFirestore.instance
         .collection('services')
+        .where('serviceType', isEqualTo: 'need')
         .where('requesterId', isEqualTo: currentUserId)
         .orderBy('createdDate', descending: true)
         .withConverter<Service>(

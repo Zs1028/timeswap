@@ -13,6 +13,7 @@ class Service {
   final String category;
   final String serviceStatus;
   final String requesterId;
+  final String serviceType;   // "need" or "offer"
   final DateTime createdDate;
 
   Service({
@@ -28,6 +29,7 @@ class Service {
     required this.category,
     required this.serviceStatus,
     required this.requesterId,
+    required this.serviceType,
     required this.createdDate,
   });
 
@@ -47,6 +49,7 @@ class Service {
       category: data['category'] ?? '',
       serviceStatus: data['serviceStatus'] ?? '',
       requesterId: data['requesterId'] ?? '',
+      serviceType: data['serviceType'] ?? 'need', // default
       createdDate:
           (data['createdDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
