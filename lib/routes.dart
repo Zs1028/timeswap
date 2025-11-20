@@ -8,6 +8,8 @@ import 'screens/home/home_page.dart';
 import 'screens/need_help/need_help_page.dart';
 import 'screens/need_help/filter_page.dart';
 import 'screens/need_help/add_request_page.dart';
+import 'screens/offer_help/offer_help_page.dart';
+import 'screens/offer_help/add_offering_page.dart'; // next step
 
 
 
@@ -21,6 +23,9 @@ class AppRoutes {
   static const needHelp = '/need-help';
   static const needHelpFilter = '/need-help/filter';
   static const addRequest = '/add-request';
+  static const offerHelp = '/offer-help';
+  static const addOffering = '/offer-help/add';
+
 
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -44,8 +49,12 @@ class AppRoutes {
           opaque: false,
           barrierColor: Colors.black54,
           pageBuilder: (_, __, ___) => const NeedHelpFiltersPage(),);
-          case addRequest:
-          return MaterialPageRoute(builder: (_) => const AddRequestPage());
+      case addRequest:
+        return MaterialPageRoute(builder: (_) => const AddRequestPage());
+      case offerHelp:
+          return MaterialPageRoute(builder: (_) => const OfferHelpPage());
+      case addOffering:
+        return MaterialPageRoute(builder: (_) => const AddOfferingPage());
       default:      
         return MaterialPageRoute(builder: (_) => const WelcomePage());
     }

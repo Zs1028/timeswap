@@ -296,12 +296,17 @@ class _BottomNav extends StatelessWidget {
         BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
       ],
       // For now just show a toast; later navigate to real tabs
-   onTap: (i) {
-  if (i == 1) {
-    Navigator.pushNamed(context, AppRoutes.needHelp);
-  } else {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Switch to tab $i (coming soon)')),
+        onTap: (i) {
+        if (i == 1) {
+          // Need Help tab
+          Navigator.pushNamed(context, AppRoutes.needHelp);
+        } else if (i == 2) {
+          // Offer Help tab
+          Navigator.pushNamed(context, AppRoutes.offerHelp);
+        } else {
+          // other tabs still “coming soon”
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Switch to tab $i (coming soon)')),
           );
         }
       },
