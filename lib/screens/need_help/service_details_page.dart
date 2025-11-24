@@ -6,7 +6,14 @@ import '../../models/service_model.dart';
 class ServiceDetailsPage extends StatelessWidget {
   final Service service;
 
-  const ServiceDetailsPage({super.key, required this.service});
+  /// NEW: controls whether we show the "Request this Service" button.
+  final bool showRequestButton;
+
+  const ServiceDetailsPage({
+    super.key,
+    required this.service,
+    this.showRequestButton = true,
+  });
 
   // TEMP user id – later replace with FirebaseAuth uid
   static const String currentUserId = 'demoUser123';
@@ -16,10 +23,13 @@ class ServiceDetailsPage extends StatelessWidget {
     final durationText = '2 hours estimated'; // TODO: store in Firestore later
     final timeCreditsText = '${service.creditsPerHour} credits / hour';
 
-    //decide if user can request
+    // Decide if user can request based on ownership + status
     final bool isMyRequest = service.requesterId == currentUserId;
-    final bool canRequest =
+
+    final bool baseCanRequest =
         !isMyRequest && service.serviceStatus.toLowerCase() == 'open';
+
+    final bool showButton = showRequestButton && baseCanRequest;
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
@@ -45,7 +55,9 @@ class ServiceDetailsPage extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 children: [
                   _serviceInfoCard(
-                    title: 'Need Help: ${service.serviceTitle}',
+                    title: service.serviceType == 'offer'
+                        ? 'Offer Help: ${service.serviceTitle}'
+                        : 'Need Help: ${service.serviceTitle}',
                     description: service.serviceDescription,
                     category: service.category,
                     durationText: durationText,
@@ -58,7 +70,7 @@ class ServiceDetailsPage extends StatelessWidget {
                 ],
               ),
             ),
-             if (canRequest) _bottomRequestButton(context),
+            if (showButton) _bottomRequestButton(context),
           ],
         ),
       ),
@@ -173,7 +185,7 @@ class ServiceDetailsPage extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              service.providerName,
+              service.providerName.isEmpty ? 'TBA' : service.providerName,
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
@@ -457,7 +469,7 @@ class ServiceDetailsPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Request sent to ${service.providerName}!',
+                    'Request sent to ${service.providerName.isEmpty ? "provider" : service.providerName}!',
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 18,

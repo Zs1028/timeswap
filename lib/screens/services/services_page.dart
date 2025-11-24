@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../../routes.dart';
 import '../../models/service_model.dart';
-import 'service_details_page.dart';
+import '../../routes.dart';
+import '../need_help/service_details_page.dart';
 
-class NeedHelpPage extends StatelessWidget {
-  const NeedHelpPage({super.key});
 
-  // TEMP user id – later replace with FirebaseAuth uid
+class ServicesPage extends StatelessWidget {
+  const ServicesPage({super.key});
+
   static const String currentUserId = 'demoUser123';
 
   @override
   Widget build(BuildContext context) {
-    // All OPEN services (for Services Available tab)
-    final servicesAvailableQuery = FirebaseFirestore.instance
+    final offeredQuery = FirebaseFirestore.instance
         .collection('services')
-        .where('serviceType', isEqualTo: 'need')
+        .where('serviceType', isEqualTo: 'offer')
         .where('serviceStatus', isEqualTo: 'open')
         .orderBy('createdDate', descending: true)
         .withConverter<Service>(
@@ -24,11 +23,10 @@ class NeedHelpPage extends StatelessWidget {
           toFirestore: (service, _) => {},
         );
 
-    // Only MY requests (for Your Request tab)
-    final yourRequestsQuery = FirebaseFirestore.instance
+    final requestedQuery = FirebaseFirestore.instance
         .collection('services')
         .where('serviceType', isEqualTo: 'need')
-        .where('requesterId', isEqualTo: currentUserId)
+        .where('serviceStatus', isEqualTo: 'open')
         .orderBy('createdDate', descending: true)
         .withConverter<Service>(
           fromFirestore: (snap, _) => Service.fromFirestore(snap),
@@ -42,7 +40,11 @@ class NeedHelpPage extends StatelessWidget {
         appBar: AppBar(
           backgroundColor: const Color(0xFFFFF4D1),
           elevation: 0,
-          toolbarHeight: 0,
+          title: const Text(
+            'Services',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          centerTitle: true,
         ),
         body: SafeArea(
           child: Column(
@@ -53,14 +55,18 @@ class NeedHelpPage extends StatelessWidget {
               Expanded(
                 child: TabBarView(
                   children: [
-                    // 1) Services Available – hide my own requests
                     _ServicesList(
-                      query: servicesAvailableQuery,
+                      query: offeredQuery,
                       hideOwn: true,
+                      titlePrefix: 'Offer Help: ',
+                      emptyText: 'No offered services yet.',
                     ),
-
-                    // 2) Your Request – only my requests + Add Request button
-                    _YourRequestTab(query: yourRequestsQuery),
+                    _ServicesList(
+                      query: requestedQuery,
+                      hideOwn: true,
+                      titlePrefix: 'Need Help: ',
+                      emptyText: 'No requested services yet.',
+                    ),
                   ],
                 ),
               ),
@@ -87,8 +93,8 @@ class NeedHelpPage extends StatelessWidget {
           unselectedLabelColor: Colors.black54,
           indicator: _RoundedUnderlineIndicator(),
           tabs: [
-            Text('Services Available'),
-            Text('Your Request'),
+            Text('Services Offered'),
+            Text('Services Requested'),
           ],
         ),
       ),
@@ -120,17 +126,15 @@ class NeedHelpPage extends StatelessWidget {
                 ),
               ),
               onChanged: (q) {
-                // later: client-side filtering
+                // later: local filtering
               },
             ),
           ),
           const SizedBox(width: 8),
           IconButton(
             onPressed: () async {
-              final result = await Navigator.pushNamed(
-                context,
-                AppRoutes.needHelpFilter,
-              );
+              final result =
+                  await Navigator.pushNamed(context, AppRoutes.needHelpFilter);
               if (result != null) debugPrint('Filter result: $result');
             },
             icon: const Icon(Icons.tune),
@@ -146,7 +150,6 @@ class NeedHelpPage extends StatelessWidget {
   }
 }
 
-/// Rounded underline for active tab
 class _RoundedUnderlineIndicator extends Decoration {
   const _RoundedUnderlineIndicator();
 
@@ -169,54 +172,17 @@ class _RoundedUnderlinePainter extends BoxPainter {
   }
 }
 
-/// Your Request tab: list + Add Request button
-class _YourRequestTab extends StatelessWidget {
-  final Query<Service> query;
-  const _YourRequestTab({required this.query});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: _ServicesList(query: query),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.addRequest);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFF39C50),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
-                ),
-              ),
-              child: const Text(
-                'Add Request',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Uses a Firestore stream to show services
 class _ServicesList extends StatelessWidget {
   final Query<Service> query;
-  final bool hideOwn; // NEW
+  final bool hideOwn;
+  final String titlePrefix;
+  final String emptyText;
 
   const _ServicesList({
     required this.query,
-    this.hideOwn = false, // default: don't hide
+    required this.hideOwn,
+    required this.titlePrefix,
+    required this.emptyText,
   });
 
   @override
@@ -234,32 +200,38 @@ class _ServicesList extends StatelessWidget {
         final docs = snapshot.data?.docs ?? [];
         var services = docs.map((d) => d.data()).toList();
 
-        // hide my own services, for Services Available tab
         if (hideOwn) {
           services = services
-              .where((s) => s.requesterId != NeedHelpPage.currentUserId)
+              .where((s) => s.requesterId != ServicesPage.currentUserId)
               .toList();
         }
 
         if (services.isEmpty) {
-          return const Center(child: Text('No services yet.'));
+          return Center(child: Text(emptyText));
         }
 
         return ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           itemCount: services.length,
           separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, i) => _ServiceCard(service: services[i]),
+          itemBuilder: (context, i) => _ServiceCard(
+            service: services[i],
+            titlePrefix: titlePrefix,
+          ),
         );
       },
     );
   }
 }
 
-/// Card UI – using Service from Firestore
 class _ServiceCard extends StatelessWidget {
   final Service service;
-  const _ServiceCard({required this.service});
+  final String titlePrefix;
+
+  const _ServiceCard({
+    required this.service,
+    required this.titlePrefix,
+  });
 
   Color _statusBg(String s) {
     switch (s.toLowerCase()) {
@@ -294,7 +266,10 @@ class _ServiceCard extends StatelessWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => ServiceDetailsPage(service: service),
+                builder: (_) => ServiceDetailsPage(
+                  service: service,
+                  showRequestButton: true, // 👈 from SERVICES page
+                ),
               ),
             );
           },
@@ -310,7 +285,7 @@ class _ServiceCard extends StatelessWidget {
                     children: [
                       RichText(
                         text: TextSpan(
-                          text: 'Need Help: ',
+                          text: titlePrefix,
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium

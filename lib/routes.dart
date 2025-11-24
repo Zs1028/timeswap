@@ -5,12 +5,11 @@ import 'screens/auth/signup_page.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/profile/create_profile_page.dart';
 import 'screens/home/home_page.dart';
-import 'screens/need_help/need_help_page.dart';
 import 'screens/need_help/filter_page.dart';
 import 'screens/need_help/add_request_page.dart';
-import 'screens/offer_help/offer_help_page.dart';
 import 'screens/offer_help/add_offering_page.dart'; // next step
-
+import 'screens/services/services_page.dart';
+import 'screens/services/your_requests_page.dart';
 
 
 class AppRoutes {
@@ -25,7 +24,8 @@ class AppRoutes {
   static const addRequest = '/add-request';
   static const offerHelp = '/offer-help';
   static const addOffering = '/offer-help/add';
-
+  static const services = '/services';
+  static const yourRequests = '/your-requests';
 
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -42,8 +42,6 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => const CreateProfilePage());
       case home: 
         return MaterialPageRoute(builder: (_) => const HomePage());
-      case needHelp:
-        return MaterialPageRoute(builder: (_) => const NeedHelpPage());
       case needHelpFilter:
         return PageRouteBuilder(
           opaque: false,
@@ -51,10 +49,12 @@ class AppRoutes {
           pageBuilder: (_, __, ___) => const NeedHelpFiltersPage(),);
       case addRequest:
         return MaterialPageRoute(builder: (_) => const AddRequestPage());
-      case offerHelp:
-          return MaterialPageRoute(builder: (_) => const OfferHelpPage());
       case addOffering:
         return MaterialPageRoute(builder: (_) => const AddOfferingPage());
+      case services:
+        return MaterialPageRoute(builder: (_) => const ServicesPage());
+      case yourRequests:
+        return MaterialPageRoute(builder: (_) => const YourRequestsPage());
       default:      
         return MaterialPageRoute(builder: (_) => const WelcomePage());
     }

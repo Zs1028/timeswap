@@ -276,7 +276,6 @@ class _ActivityRow extends StatelessWidget {
     );
   }
 }
-
 class _BottomNav extends StatelessWidget {
   final int currentIndex;
   const _BottomNav({required this.currentIndex});
@@ -290,26 +289,30 @@ class _BottomNav extends StatelessWidget {
       showUnselectedLabels: true,
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(icon: Icon(Icons.help_outline), label: 'Need Help'),
-        BottomNavigationBarItem(icon: Icon(Icons.volunteer_activism), label: 'Offer Help'),
+        BottomNavigationBarItem(icon: Icon(Icons.handshake_outlined), label: 'Services'),
+        BottomNavigationBarItem(icon: Icon(Icons.assignment_outlined), label: 'Your Request'),
         BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Messages'),
         BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
       ],
-      // For now just show a toast; later navigate to real tabs
-        onTap: (i) {
-        if (i == 1) {
-          // Need Help tab
-          Navigator.pushNamed(context, AppRoutes.needHelp);
-        } else if (i == 2) {
-          // Offer Help tab
-          Navigator.pushNamed(context, AppRoutes.offerHelp);
-        } else {
-          // other tabs still “coming soon”
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Switch to tab $i (coming soon)')),
-          );
+      onTap: (i) {
+        if (i == currentIndex) return;
+
+        switch (i) {
+          case 0:
+            Navigator.pushNamed(context, AppRoutes.home);
+            break;
+          case 1:
+            Navigator.pushNamed(context, AppRoutes.services);
+            break;
+          case 2:
+            Navigator.pushNamed(context, AppRoutes.yourRequests);
+            break;
+          default:
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Tab $i coming soon')),
+            );
         }
       },
     );
-  } 
+  }
 }
