@@ -4,8 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/service_model.dart';
 import '../../routes.dart';
 import '../need_help/service_details_page.dart';
-import 'service_applications_page.dart'; // adjust path if needed
-
+import 'service_applications_page.dart';
 
 class YourRequestsPage extends StatelessWidget {
   const YourRequestsPage({super.key});
@@ -55,6 +54,7 @@ class YourRequestsPage extends StatelessWidget {
               Expanded(
                 child: TabBarView(
                   children: [
+                    // Tab 1: Services Offered
                     _MyServicesTab(
                       query: myOfferedQuery,
                       titlePrefix: 'Offer Help: ',
@@ -62,6 +62,8 @@ class YourRequestsPage extends StatelessWidget {
                       onAddPressed: () =>
                           Navigator.pushNamed(context, AppRoutes.addOffering),
                     ),
+
+                    // Tab 2: Services Requested
                     _MyServicesTab(
                       query: myRequestedQuery,
                       titlePrefix: 'Need Help: ',
@@ -265,6 +267,11 @@ class _ServiceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool showMarkCompleted =
+        service.serviceStatus.toLowerCase() == 'inprogress';
+    final bool showViewApplications =
+        service.serviceStatus.toLowerCase() == 'open';
+
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -288,147 +295,195 @@ class _ServiceCard extends StatelessWidget {
                 builder: (_) => ServiceDetailsPage(
                   service: service,
                   showRequestButton:
-                      false, // 👈 in "Your Request" page we NEVER show request button
+                      false, // in "Your Request" we never show request button
                 ),
               ),
             );
           },
-        child: Padding(
+          child: Padding(
             padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          RichText(
-                            text: TextSpan(
-                              text: titlePrefix,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                    color: Colors.blue.shade700,
+                // LEFT COLUMN
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      RichText(
+                        text: TextSpan(
+                          text: titlePrefix,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                color: Colors.blue.shade700,
+                                fontWeight: FontWeight.w700,
+                              ),
+                          children: [
+                            TextSpan(
+                              text: service.serviceTitle,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: Colors.black87,
                                     fontWeight: FontWeight.w700,
                                   ),
-                              children: [
-                                TextSpan(
-                                  text: service.serviceTitle,
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        color: Colors.black87,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                ),
-                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _iconText(Icons.person_outline, service.providerName),
+                      const SizedBox(height: 2),
+                      _iconText(Icons.place_outlined, service.location),
+                      const SizedBox(height: 2),
+                      _iconText(Icons.access_time, service.availableTiming),
+                      const SizedBox(height: 2),
+                      _iconText(Icons.hourglass_bottom,
+                          'Within ${service.timeLimitDays} days'),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // RIGHT COLUMN
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: _statusBg(service.serviceStatus),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        service.serviceStatus,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        service.category,
+                        style: const TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.hourglass_empty, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${service.creditsPerHour} credits',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          _iconText(Icons.person_outline, service.providerName),
-                          const SizedBox(height: 2),
-                          _iconText(Icons.place_outlined, service.location),
-                          const SizedBox(height: 2),
-                          _iconText(Icons.access_time, service.availableTiming),
-                          const SizedBox(height: 2),
-                          _iconText(Icons.hourglass_bottom,
-                              'Within ${service.timeLimitDays} days'),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Container(
+
+                    // View Applications (only when open)
+                    if (showViewApplications) ...[
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ServiceApplicationsPage(service: service),
+                            ),
+                          );
+                        },
+                        style: TextButton.styleFrom(
                           padding:
-                              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: _statusBg(service.serviceStatus),
-                            borderRadius: BorderRadius.circular(12),
+                              const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        child: const Text(
+                          'View Applications',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
                           ),
-                          child: Text(
-                            service.serviceStatus,
-                            style: const TextStyle(
+                        ),
+                      ),
+                    ],
+
+                    // Mark as completed (only when in progress)
+                    if (showMarkCompleted) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 30,
+                        child: TextButton(
+                          onPressed: () => _markAsCompleted(context),
+                          style: TextButton.styleFrom(
+                            backgroundColor: const Color(0xFF7ED9A2),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10),
+                          ),
+                          child: const Text(
+                            'Mark as completed',
+                            style: TextStyle(
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              fontSize: 12,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            service.category,
-                            style: const TextStyle(
-                              color: Colors.blue,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.hourglass_empty, size: 14),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${service.creditsPerHour} credits',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ],
                 ),
-
-                const SizedBox(height: 8),
-
-                // 👇 Show "View Applications" ONLY for OPEN services
-                if (service.serviceStatus.toLowerCase() == 'open')
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                ServiceApplicationsPage( 
-                                  service:service,
-                            ),
-                          ),
-                        );
-                      },
-                      child: const Text('View Applications'),
-                    ),
-                  ),
               ],
             ),
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _markAsCompleted(BuildContext context) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('services')
+          .doc(service.id)
+          .update({'serviceStatus': 'completed'});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Service marked as completed.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update: $e')),
+      );
+    }
   }
 
   Widget _iconText(IconData icon, String text) {

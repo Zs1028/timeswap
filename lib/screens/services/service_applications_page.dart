@@ -2,31 +2,39 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/service_model.dart';
+import '../../models/service_application.dart';
 
 class ServiceApplicationsPage extends StatelessWidget {
   final Service service;
 
-  const ServiceApplicationsPage({super.key, required this.service});
+  const ServiceApplicationsPage({
+    super.key,
+    required this.service,
+  });
 
   @override
   Widget build(BuildContext context) {
     final applicationsQuery = FirebaseFirestore.instance
         .collection('serviceRequests')
         .where('serviceId', isEqualTo: service.id)
-        .orderBy('createdAt', descending: true);
+        .orderBy('createdAt', descending: true)
+        .withConverter<ServiceApplication>(
+          fromFirestore: (snap, _) => ServiceApplication.fromFirestore(snap),
+          toFirestore: (app, _) => {},
+        );
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
       appBar: AppBar(
         backgroundColor: const Color(0xFFFFF4D1),
         elevation: 0,
-        title: const Text(
-          'Applications',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          'Applications for ${service.serviceTitle}',
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
         ),
         centerTitle: true,
       ),
-      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      body: StreamBuilder<QuerySnapshot<ServiceApplication>>(
         stream: applicationsQuery.snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -36,131 +44,43 @@ class ServiceApplicationsPage extends StatelessWidget {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
 
-          final docs = snapshot.data?.docs ?? [];
-          if (docs.isEmpty) {
+          final apps = snapshot.data?.docs.map((d) => d.data()).toList() ?? [];
+
+          if (apps.isEmpty) {
             return const Center(child: Text('No applications yet.'));
           }
 
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            itemCount: docs.length,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            itemCount: apps.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, i) {
-              final doc = docs[i];
-              final data = doc.data();
-              final requesterName =
-                  data['requesterName'] ?? data['requesterId'] ?? 'Unknown';
-              final status = (data['status'] ?? 'pending').toString();
-
-              return _ApplicationCard(
-                requestId: doc.id,
-                requesterName: requesterName,
-                status: status,
-                onAccept: () =>
-                    _acceptApplication(context, doc.id, requesterName),
-                onDecline: () =>
-                    _declineApplication(context, doc.id),
-              );
-            },
+            itemBuilder: (context, i) => _ApplicationCard(
+              service: service,
+              application: apps[i],
+            ),
           );
         },
       ),
     );
   }
-
-  Future<void> _acceptApplication(
-    BuildContext context,
-    String requestId,
-    String requesterName,
-  ) async {
-    try {
-      final firestore = FirebaseFirestore.instance;
-
-      // 1) Update the service -> inprogress + save chosen helper
-      await firestore.collection('services').doc(service.id).update({
-        'serviceStatus': 'inprogress',
-        'providerId': 'TODO-helper-id', // later: from user profile
-        'providerName': requesterName,
-      });
-
-      // 2) Mark this request as accepted
-      await firestore.collection('serviceRequests').doc(requestId).update({
-        'status': 'accepted',
-      });
-
-      // 3) Optionally decline others
-      final othersSnap = await firestore
-          .collection('serviceRequests')
-          .where('serviceId', isEqualTo: service.id)
-          .where('status', isEqualTo: 'pending')
-          .get();
-
-      for (final d in othersSnap.docs) {
-        if (d.id == requestId) continue;
-        await d.reference.update({'status': 'declined'});
-      }
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Application accepted.')),
-        );
-        Navigator.of(context).pop(); // back to Your Requests
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to accept: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _declineApplication(
-    BuildContext context,
-    String requestId,
-  ) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('serviceRequests')
-          .doc(requestId)
-          .update({'status': 'declined'});
-
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Application declined.')),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to decline: $e')),
-        );
-      }
-    }
-  }
 }
 
 class _ApplicationCard extends StatelessWidget {
-  final String requestId;
-  final String requesterName;
-  final String status;
-  final VoidCallback onAccept;
-  final VoidCallback onDecline;
+  final Service service;
+  final ServiceApplication application;
 
   const _ApplicationCard({
-    required this.requestId,
-    required this.requesterName,
-    required this.status,
-    required this.onAccept,
-    required this.onDecline,
+    required this.service,
+    required this.application,
   });
 
-  Color _statusColor() {
+  Color _statusColor(String status) {
     switch (status.toLowerCase()) {
       case 'accepted':
-        return const Color(0xFFBFE8C9);
+        return const Color(0xFF7ED9A2);
       case 'declined':
-        return const Color(0xFFF8B4B4);
+        return Colors.grey.shade300;
+      case 'pending':
       default:
         return const Color(0xFFFBE1B8);
     }
@@ -168,7 +88,7 @@ class _ApplicationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPending = status.toLowerCase() == 'pending';
+    final isPending = application.status.toLowerCase() == 'pending';
 
     return Container(
       decoration: BoxDecoration(
@@ -186,52 +106,154 @@ class _ApplicationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            requesterName,
-            style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 4),
+          // Top row: name + status chip
           Row(
             children: [
+              Expanded(
+                child: Text(
+                  application.requesterName.isNotEmpty
+                      ? application.requesterName
+                      : application.requesterId,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _statusColor(),
+                  color: _statusColor(application.status),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
-                  status,
+                  application.status,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const Spacer(),
-              if (isPending) ...[
-                TextButton(
-                  onPressed: onDecline,
-                  child: const Text('Decline'),
-                ),
-                const SizedBox(width: 4),
-                ElevatedButton(
-                  onPressed: onAccept,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF39C50),
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size(0, 36),
-                  ),
-                  child: const Text('Accept'),
-                ),
-              ],
             ],
           ),
+          const SizedBox(height: 8),
+          Text(
+            'Applied on: ${application.createdAt}',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.black.withOpacity(0.6),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          if (isPending)
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 36,
+                    child: ElevatedButton(
+                      onPressed: () => _acceptApplication(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF7ED9A2),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      child: const Text(
+                        'Accept',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: SizedBox(
+                    height: 36,
+                    child: ElevatedButton(
+                      onPressed: () => _declineApplication(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFE74C3C),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                      child: const Text(
+                        'Decline',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            )
+          else
+            const SizedBox.shrink(),
         ],
       ),
     );
+  }
+
+  Future<void> _acceptApplication(BuildContext context) async {
+    try {
+      final fs = FirebaseFirestore.instance;
+
+      // Get all applications for this service
+      final allSnap = await fs
+          .collection('serviceRequests')
+          .where('serviceId', isEqualTo: application.serviceId)
+          .get();
+
+      final batch = fs.batch();
+
+      for (final doc in allSnap.docs) {
+        if (doc.id == application.id) {
+          batch.update(doc.reference, {'status': 'accepted'});
+        } else {
+          batch.update(doc.reference, {'status': 'declined'});
+        }
+      }
+
+      // Update the service to inprogress and set provider info
+      batch.update(
+        fs.collection('services').doc(service.id),
+        {
+          'serviceStatus': 'inprogress',
+          'providerId': application.requesterId,
+          'providerName': application.requesterName,
+        },
+      );
+
+      await batch.commit();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Application accepted.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to accept: $e')),
+      );
+    }
+  }
+
+  Future<void> _declineApplication(BuildContext context) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('serviceRequests')
+          .doc(application.id)
+          .update({'status': 'declined'});
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Application declined.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to decline: $e')),
+      );
+    }
   }
 }
