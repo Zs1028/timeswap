@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'screens/welcome/welcome_page.dart';
 import 'screens/welcome/welcome_page_2.dart';
 import 'screens/auth/signup_page.dart';
@@ -7,56 +9,71 @@ import 'screens/profile/create_profile_page.dart';
 import 'screens/home/home_page.dart';
 import 'screens/need_help/filter_page.dart';
 import 'screens/need_help/add_request_page.dart';
-import 'screens/offer_help/add_offering_page.dart'; // next step
+import 'screens/offer_help/add_offering_page.dart';
 import 'screens/services/services_page.dart';
 import 'screens/services/your_requests_page.dart';
-
 
 class AppRoutes {
   static const welcome = '/';
   static const welcome2 = '/welcome2';
-  static const signup = '/signup'; 
-  static const login     = '/login';
+  static const signup = '/signup';
+  static const login = '/login';
   static const createProfile = '/create-profile';
   static const home = '/home';
-  static const needHelp = '/need-help';
   static const needHelpFilter = '/need-help/filter';
   static const addRequest = '/add-request';
-  static const offerHelp = '/offer-help';
   static const addOffering = '/offer-help/add';
   static const services = '/services';
   static const yourRequests = '/your-requests';
 
-
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case welcome:
-        return MaterialPageRoute(builder: (_) => const WelcomePage());
+        return _buildRoute(const WelcomePage());
       case welcome2:
-        return MaterialPageRoute(builder: (_) => const WelcomePage2());
+        return _buildRoute(const WelcomePage2());
       case signup:
-        return MaterialPageRoute(builder: (_) => const SignupPage());
+        return _buildRoute(const SignupPage());
       case login:
-        return MaterialPageRoute(builder: (_) => const LoginPage());
+        return _buildRoute(const LoginPage());
+
+      // 🔒 require login
       case createProfile:
-        return MaterialPageRoute(builder: (_) => const CreateProfilePage());
-      case home: 
-        return MaterialPageRoute(builder: (_) => const HomePage());
+        return _buildRoute(const CreateProfilePage(), requireAuth: true);
+      case home:
+        return _buildRoute(const HomePage(), requireAuth: true);
       case needHelpFilter:
         return PageRouteBuilder(
           opaque: false,
           barrierColor: Colors.black54,
-          pageBuilder: (_, __, ___) => const NeedHelpFiltersPage(),);
+          pageBuilder: (_, __, ___) => const NeedHelpFiltersPage(),
+        );
       case addRequest:
-        return MaterialPageRoute(builder: (_) => const AddRequestPage());
+        return _buildRoute(const AddRequestPage(), requireAuth: true);
       case addOffering:
-        return MaterialPageRoute(builder: (_) => const AddOfferingPage());
+        return _buildRoute(const AddOfferingPage(), requireAuth: true);
       case services:
-        return MaterialPageRoute(builder: (_) => const ServicesPage());
+        return _buildRoute(const ServicesPage(), requireAuth: true);
       case yourRequests:
-        return MaterialPageRoute(builder: (_) => const YourRequestsPage());
-      default:      
-        return MaterialPageRoute(builder: (_) => const WelcomePage());
+        return _buildRoute(const YourRequestsPage(), requireAuth: true);
+
+      default:
+        return _buildRoute(const WelcomePage());
     }
+  }
+
+  /// Helper to optionally require FirebaseAuth user
+  static MaterialPageRoute _buildRoute(
+    Widget page, {
+    bool requireAuth = false,
+  }) {
+    if (requireAuth) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        // If not logged in, send to LoginPage
+        return MaterialPageRoute(builder: (_) => const LoginPage());
+      }
+    }
+    return MaterialPageRoute(builder: (_) => page);
   }
 }

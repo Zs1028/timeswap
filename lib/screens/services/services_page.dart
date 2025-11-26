@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 import '../../models/service_model.dart';
 import '../../routes.dart';
@@ -8,8 +10,6 @@ import '../need_help/service_details_page.dart';
 
 class ServicesPage extends StatelessWidget {
   const ServicesPage({super.key});
-
-  static const String currentUserId = 'demoUser123';
 
   @override
   Widget build(BuildContext context) {
@@ -180,9 +180,9 @@ class _ServicesList extends StatelessWidget {
 
   const _ServicesList({
     required this.query,
-    required this.hideOwn,
     required this.titlePrefix,
     required this.emptyText,
+    this.hideOwn = false,
   });
 
   @override
@@ -200,10 +200,14 @@ class _ServicesList extends StatelessWidget {
         final docs = snapshot.data?.docs ?? [];
         var services = docs.map((d) => d.data()).toList();
 
+        // 🔐 Hide my own services when looking at “Services” page
         if (hideOwn) {
-          services = services
-              .where((s) => s.requesterId != ServicesPage.currentUserId)
-              .toList();
+          final user = FirebaseAuth.instance.currentUser;
+          if (user != null) {
+            final uid = user.uid;
+            services =
+                services.where((s) => s.requesterId != uid).toList();
+          }
         }
 
         if (services.isEmpty) {

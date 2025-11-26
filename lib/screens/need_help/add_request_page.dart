@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 
 class AddRequestPage extends StatefulWidget {
   const AddRequestPage({super.key});
@@ -10,8 +12,7 @@ class AddRequestPage extends StatefulWidget {
 
 class _AddRequestPageState extends State<AddRequestPage> {
   // TEMP user info – later replace with FirebaseAuth + users collection
-  static const String currentUserId = 'demoUser123';
-  static const String currentUserName = 'Me'; // shown on cards later if you want
+
 
   final _formKey = GlobalKey<FormState>();
 
@@ -41,87 +42,101 @@ class _AddRequestPageState extends State<AddRequestPage> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
-    final title = _titleController.text.trim();
-    final description = _descriptionController.text.trim();
-    final date = _dateController.text.trim();
-    final from = _fromTimeController.text.trim();
-    final to = _toTimeController.text.trim();
-    final category = _categoryController.text.trim();
-    final location = _locationController.text.trim();
-    final timeLimitStr = _timeLimitController.text.trim();
-    final creditsStr = _creditsController.text.trim();
+Future<void> _submit() async {
+  // 1️⃣ Get current Firebase user
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please log in first.')),
+    );
+    return;
+  }
 
-    if (title.isEmpty ||
-        description.isEmpty ||
-        date.isEmpty ||
-        from.isEmpty ||
-        to.isEmpty ||
-        category.isEmpty ||
-        location.isEmpty ||
-        timeLimitStr.isEmpty ||
-        creditsStr.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields.')),
-      );
-      return;
-    }
+  final String currentUserId = user.uid;
+  final String currentUserName = user.email ?? 'TimeSwap User';
 
-    final timeLimitDays = int.tryParse(timeLimitStr);
-    final creditsPerHour = int.tryParse(creditsStr);
+  // 2️⃣ Read form values
+  final title = _titleController.text.trim();
+  final description = _descriptionController.text.trim();
+  final date = _dateController.text.trim();
+  final from = _fromTimeController.text.trim();
+  final to = _toTimeController.text.trim();
+  final category = _categoryController.text.trim();
+  final location = _locationController.text.trim();
+  final timeLimitStr = _timeLimitController.text.trim();
+  final creditsStr = _creditsController.text.trim();
 
-    if (timeLimitDays == null || creditsPerHour == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('Time limit and time credits must be valid numbers.'),
-        ),
-      );
-      return;
-    }
+  if (title.isEmpty ||
+      description.isEmpty ||
+      date.isEmpty ||
+      from.isEmpty ||
+      to.isEmpty ||
+      category.isEmpty ||
+      location.isEmpty ||
+      timeLimitStr.isEmpty ||
+      creditsStr.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill in all required fields.')),
+    );
+    return;
+  }
 
-    final availableTiming = '$date, $from - $to';
+  final timeLimitDays = int.tryParse(timeLimitStr);
+  final creditsPerHour = int.tryParse(creditsStr);
 
-    setState(() {
-      _isSubmitting = true;
+  if (timeLimitDays == null || creditsPerHour == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Time limit and time credits must be valid numbers.'),
+      ),
+    );
+    return;
+  }
+
+  final availableTiming = '$date, $from - $to';
+
+  setState(() {
+    _isSubmitting = true;
+  });
+
+  try {
+    await FirebaseFirestore.instance.collection('services').add({
+      'serviceTitle': title,
+      'serviceDescription': description,
+      'category': category,
+      'location': location,
+      'availableTiming': availableTiming,
+      'timeLimitDays': timeLimitDays,
+      'creditsPerHour': creditsPerHour,
+      'serviceStatus': 'open',       // new requests start as open
+
+      // 🔥 link to real logged-in user
+      'requesterId': currentUserId,  // the person who needs help
+      'providerId': currentUserId,   // for "Need Help", requester = owner
+      'providerName': currentUserName,
+
+      'serviceType': 'need',
+      'createdDate': FieldValue.serverTimestamp(),
     });
 
-    try {
-      await FirebaseFirestore.instance.collection('services').add({
-        'serviceTitle': title,
-        'serviceDescription': description,
-        'category': category,
-        'location': location,
-        'availableTiming': availableTiming,
-        'timeLimitDays': timeLimitDays,
-        'creditsPerHour': creditsPerHour,
-        'serviceStatus': 'open',        // new requests start as open
-        'requesterId': currentUserId,   // the person who needs help
-        // helper/provider not chosen yet
-        'providerId': '',
-        'providerName': '',
-        'serviceType' : 'need',
-        'createdDate': FieldValue.serverTimestamp(),
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Request created successfully.')),
+    );
+    Navigator.of(context).pop(); // go back to previous page
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to create request: $e')),
+    );
+  } finally {
+    if (mounted) {
+      setState(() {
+        _isSubmitting = false;
       });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request created successfully.')),
-      );
-      Navigator.of(context).pop(); // go back to Need Help page
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create request: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {

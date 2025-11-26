@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/service_model.dart';
 
@@ -15,11 +16,12 @@ class ServiceDetailsPage extends StatelessWidget {
     this.showRequestButton = true,
   });
 
-  // TEMP user id – later replace with FirebaseAuth uid
-  static const String currentUserId = 'demoUser123';
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    final currentUserId = user?.uid ?? '';
+    
     final durationText = '2 hours estimated'; // TODO: store in Firestore later
     final timeCreditsText = '${service.creditsPerHour} credits / hour';
 
@@ -385,6 +387,13 @@ class ServiceDetailsPage extends StatelessWidget {
                           height: 36,
                           child: ElevatedButton(
                             onPressed: () async {
+                              final user = FirebaseAuth.instance.currentUser; // 👈 ADD THIS
+                              if (user == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text("Please log in to request this service.")),
+                                );
+                                return;
+                              }
                               try {
                                 await FirebaseFirestore.instance
                                     .collection('serviceRequests')
@@ -393,7 +402,9 @@ class ServiceDetailsPage extends StatelessWidget {
                                   'serviceTitle': service.serviceTitle,
                                   'providerId': service.providerId,
                                   'providerName': service.providerName,
-                                  'requesterId': currentUserId,
+                                  'requesterId': user?.uid ?? '',
+                                  'requesterName': user?.displayName ?? 'Unknown User',
+                                  
                                   'status': 'pending',
                                   'createdAt':
                                       FieldValue.serverTimestamp(),

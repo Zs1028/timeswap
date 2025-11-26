@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../models/service_model.dart';
 import '../../routes.dart';
@@ -9,10 +10,23 @@ import 'service_applications_page.dart';
 class YourRequestsPage extends StatelessWidget {
   const YourRequestsPage({super.key});
 
-  static const String currentUserId = 'demoUser123';
-
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // Safety: if somehow reached here without login → push Login
+    if (user == null) {
+      // You can also return LoginPage() directly if you want.
+      Future.microtask(() {
+        Navigator.pushReplacementNamed(context, AppRoutes.login);
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final String currentUserId = user.uid;
+
     final myRequestedQuery = FirebaseFirestore.instance
         .collection('services')
         .where('serviceType', isEqualTo: 'need')
@@ -294,8 +308,7 @@ class _ServiceCard extends StatelessWidget {
               MaterialPageRoute(
                 builder: (_) => ServiceDetailsPage(
                   service: service,
-                  showRequestButton:
-                      false, // in "Your Request" we never show request button
+                  showRequestButton: false,
                 ),
               ),
             );
@@ -422,8 +435,7 @@ class _ServiceCard extends StatelessWidget {
                           );
                         },
                         style: TextButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         child: const Text(
                           'View Applications',

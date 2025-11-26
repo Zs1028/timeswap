@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AddOfferingPage extends StatefulWidget {
   const AddOfferingPage({super.key});
@@ -9,8 +10,6 @@ class AddOfferingPage extends StatefulWidget {
 }
 
 class _AddOfferingPageState extends State<AddOfferingPage> {
-  static const String currentUserId = 'demoUser123';
-  static const String currentUserName = 'Me';
 
   final _formKey = GlobalKey<FormState>();
 
@@ -41,80 +40,100 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
   }
 
   Future<void> _submit() async {
-    final title = _titleController.text.trim();
-    final description = _descriptionController.text.trim();
-    final date = _dateController.text.trim();
-    final from = _fromTimeController.text.trim();
-    final to = _toTimeController.text.trim();
-    final category = _categoryController.text.trim();
-    final location = _locationController.text.trim();
-    final timeLimitStr = _timeLimitController.text.trim();
-    final creditsStr = _creditsController.text.trim();
+  // 1️⃣ Get logged-in user
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please log in first.')),
+    );
+    return;
+  }
 
-    if (title.isEmpty ||
-        description.isEmpty ||
-        date.isEmpty ||
-        from.isEmpty ||
-        to.isEmpty ||
-        category.isEmpty ||
-        location.isEmpty ||
-        timeLimitStr.isEmpty ||
-        creditsStr.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields.')),
-      );
-      return;
-    }
+  final String currentUserId = user.uid;
+  final String currentUserName = user.email ?? 'TimeSwap User';
 
-    final timeLimitDays = int.tryParse(timeLimitStr);
-    final creditsPerHour = int.tryParse(creditsStr);
+  // 2️⃣ Read form values
+  final title = _titleController.text.trim();
+  final description = _descriptionController.text.trim();
+  final date = _dateController.text.trim();
+  final from = _fromTimeController.text.trim();
+  final to = _toTimeController.text.trim();
+  final category = _categoryController.text.trim();
+  final location = _locationController.text.trim();
+  final timeLimitStr = _timeLimitController.text.trim();
+  final creditsStr = _creditsController.text.trim();
 
-    if (timeLimitDays == null || creditsPerHour == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Time limit and time credits must be valid numbers.'),
-        ),
-      );
-      return;
-    }
+  if (title.isEmpty ||
+      description.isEmpty ||
+      date.isEmpty ||
+      from.isEmpty ||
+      to.isEmpty ||
+      category.isEmpty ||
+      location.isEmpty ||
+      timeLimitStr.isEmpty ||
+      creditsStr.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill in all required fields.')),
+    );
+    return;
+  }
 
-    final availableTiming = '$date, $from - $to';
+  final timeLimitDays = int.tryParse(timeLimitStr);
+  final creditsPerHour = int.tryParse(creditsStr);
 
-    setState(() => _isSubmitting = true);
+  if (timeLimitDays == null || creditsPerHour == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Time limit and time credits must be valid numbers.'),
+      ),
+    );
+    return;
+  }
 
-    try {
-      await FirebaseFirestore.instance.collection('services').add({
-        'serviceTitle': title,
-        'serviceDescription': description,
-        'category': category,
-        'location': location,
-        'availableTiming': availableTiming,
-        'timeLimitDays': timeLimitDays,
-        'creditsPerHour': creditsPerHour,
-        'serviceStatus': 'open',
-        'requesterId': currentUserId,     // owner = helper for now
-        'providerId': currentUserId,
-        'providerName': currentUserName,  // show on card
-        'serviceType': 'offer',           // ⭐ OFFER
-        'createdDate': FieldValue.serverTimestamp(),
-      });
+  final availableTiming = '$date, $from - $to';
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Offering created successfully.')),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create offering: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+  setState(() => _isSubmitting = true);
+
+  try {
+    await FirebaseFirestore.instance.collection('services').add({
+      'serviceTitle': title,
+      'serviceDescription': description,
+      'category': category,
+      'location': location,
+      'availableTiming': availableTiming,
+      'timeLimitDays': timeLimitDays,
+      'creditsPerHour': creditsPerHour,
+      'serviceStatus': 'open',
+
+      // ⭐ OFFER HELP LOGIC
+      // The owner of this service is the HELPER
+      'providerId': currentUserId,
+      'providerName': currentUserName,
+
+      // requester is empty — requester will be the person who needs help later
+      'requesterId': '',
+
+      'serviceType': 'offer',
+      'createdDate': FieldValue.serverTimestamp(),
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Offering created successfully.')),
+    );
+    Navigator.of(context).pop();
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to create offering: $e')),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {
