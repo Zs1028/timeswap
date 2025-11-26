@@ -1,4 +1,6 @@
  import 'package:flutter/material.dart';
+ import 'package:firebase_auth/firebase_auth.dart';
+
  import '../../routes.dart';
 
 class HomePage extends StatelessWidget {
@@ -159,16 +161,30 @@ class _Header extends StatelessWidget {
                 ),
           ),
           const Spacer(),
+
+          /// 🔥 LOGOUT BUTTON (TEMPORARY)
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.black87),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushReplacementNamed(context, AppRoutes.welcome);
+              }
+            },
+          ),
+
+          // Existing profile picture
           CircleAvatar(
             radius: 20,
             backgroundColor: Colors.white,
             child: ClipOval(
               child: Image.asset(
-                'assets/images/profile.jpg', // optional placeholder
+                'assets/images/profile.jpg',
                 fit: BoxFit.cover,
                 width: 36,
                 height: 36,
-                errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 22),
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.person, size: 22),
               ),
             ),
           ),
@@ -177,6 +193,7 @@ class _Header extends StatelessWidget {
     );
   }
 }
+
 
 class _ShadowCard extends StatelessWidget {
   final Widget child;

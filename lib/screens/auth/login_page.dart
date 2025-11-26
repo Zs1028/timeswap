@@ -185,8 +185,11 @@ class _LoginPageState extends State<LoginPage> {
   // Helpers
   Widget _label(String t) => Padding(
         padding: const EdgeInsets.only(bottom: 6, top: 6),
-        child: const Text(
-          'Email',
+        child: Text(
+          t,
+          style: const TextStyle(
+          fontWeight: FontWeight.w600,
+          ),
         ),
       );
 
