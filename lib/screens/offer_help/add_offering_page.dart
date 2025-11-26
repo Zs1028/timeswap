@@ -107,11 +107,11 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
 
       // ⭐ OFFER HELP LOGIC
       // The owner of this service is the HELPER
-      'providerId': currentUserId,
-      'providerName': currentUserName,
+      'providerId': user.uid,
+      'providerName': 'Temp Name',
 
       // requester is empty — requester will be the person who needs help later
-      'requesterId': '',
+      'requesterId': user.uid,
 
       'serviceType': 'offer',
       'createdDate': FieldValue.serverTimestamp(),
