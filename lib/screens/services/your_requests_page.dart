@@ -16,7 +16,6 @@ class YourRequestsPage extends StatelessWidget {
 
     // Safety: if somehow reached here without login → push Login
     if (user == null) {
-      // You can also return LoginPage() directly if you want.
       Future.microtask(() {
         Navigator.pushReplacementNamed(context, AppRoutes.login);
       });
@@ -68,20 +67,22 @@ class YourRequestsPage extends StatelessWidget {
               Expanded(
                 child: TabBarView(
                   children: [
-                    // Tab 1: Services Offered
+                    // Tab 1: Services Offered (you helped others)
                     _MyServicesTab(
                       query: myOfferedQuery,
                       titlePrefix: 'Offer Help: ',
                       addButtonText: 'Add Offering',
+                      isOfferedTab: true,
                       onAddPressed: () =>
                           Navigator.pushNamed(context, AppRoutes.addOffering),
                     ),
 
-                    // Tab 2: Services Requested
+                    // Tab 2: Services Requested (others helped you)
                     _MyServicesTab(
                       query: myRequestedQuery,
                       titlePrefix: 'Need Help: ',
                       addButtonText: 'Add Request',
+                      isOfferedTab: false,
                       onAddPressed: () =>
                           Navigator.pushNamed(context, AppRoutes.addRequest),
                     ),
@@ -148,11 +149,16 @@ class _MyServicesTab extends StatefulWidget {
   final String addButtonText;
   final VoidCallback onAddPressed;
 
+  /// true  = "Services Offered" tab
+  /// false = "Services Requested" tab
+  final bool isOfferedTab;
+
   const _MyServicesTab({
     required this.query,
     required this.titlePrefix,
     required this.addButtonText,
     required this.onAddPressed,
+    required this.isOfferedTab,
   });
 
   @override
@@ -198,6 +204,7 @@ class _MyServicesTabState extends State<_MyServicesTab> {
                 itemBuilder: (context, i) => _ServiceCard(
                   service: services[i],
                   titlePrefix: widget.titlePrefix,
+                  isOfferedTab: widget.isOfferedTab,
                 ),
               );
             },
@@ -261,9 +268,14 @@ class _ServiceCard extends StatelessWidget {
   final Service service;
   final String titlePrefix;
 
+  /// true  = "Services Offered" tab
+  /// false = "Services Requested" tab
+  final bool isOfferedTab;
+
   const _ServiceCard({
     required this.service,
     required this.titlePrefix,
+    required this.isOfferedTab,
   });
 
   Color _statusBg(String s) {
@@ -285,6 +297,13 @@ class _ServiceCard extends StatelessWidget {
         service.serviceStatus.toLowerCase() == 'inprogress';
     final bool showViewApplications =
         service.serviceStatus.toLowerCase() == 'open';
+
+    final user = FirebaseAuth.instance.currentUser;
+    final bool showRateReview =
+        service.serviceStatus.toLowerCase() == 'completed' &&
+        user != null &&
+        !isOfferedTab && // only for "Services Requested" tab
+        service.requesterId == user.uid;
 
     return Material(
       color: Colors.transparent,
@@ -458,11 +477,35 @@ class _ServiceCard extends StatelessWidget {
                           style: TextButton.styleFrom(
                             backgroundColor: const Color(0xFF7ED9A2),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 10),
                           ),
                           child: const Text(
                             'Mark as completed',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    // ⭐ Rate & Review (only on completed + Services Requested tab)
+                    if (showRateReview) ...[
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 30,
+                        child: TextButton(
+                          onPressed: () => _openRatingDialog(context),
+                          style: TextButton.styleFrom(
+                            backgroundColor: const Color(0xFFF39C50),
+                            foregroundColor: Colors.white,
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 10),
+                          ),
+                          child: const Text(
+                            'Rate & Review',
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
@@ -496,6 +539,121 @@ class _ServiceCard extends StatelessWidget {
         SnackBar(content: Text('Failed to update: $e')),
       );
     }
+  }
+
+  Future<void> _openRatingDialog(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in again to rate.')),
+      );
+      return;
+    }
+
+    int selectedStars = 5;
+    final commentCtrl = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                'How was your experience with ${service.providerName}?',
+                style: const TextStyle(fontSize: 16),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Rating',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final filled = i < selectedStars;
+                      return IconButton(
+                        icon: Icon(
+                          filled ? Icons.star : Icons.star_border,
+                          color: Colors.amber,
+                        ),
+                        onPressed: () {
+                          setState(() => selectedStars = i + 1);
+                        },
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: commentCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Write some comment... [Optional]',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await _saveRating(
+                      user: user,
+                      stars: selectedStars,
+                      comment: commentCtrl.text.trim(),
+                    );
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx, true);
+                    }
+                  },
+                  child: const Text('Done'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thanks for your rating!')),
+      );
+    }
+  }
+
+  Future<void> _saveRating({
+    required User user,
+    required int stars,
+    required String comment,
+  }) async {
+    final fs = FirebaseFirestore.instance;
+
+    final reviewerId = user.uid;
+    final revieweeId = service.providerId;       // helper
+    final transactionId = service.id;            // use service as transaction
+
+    await fs.collection('ratings').add({
+      'serviceId': service.id,
+      'transactionId': transactionId,
+      'reviewerId': reviewerId,
+      'revieweeId': revieweeId,
+      'rating': stars,
+      'comment': comment,
+      'ratingDate': FieldValue.serverTimestamp(),
+    });
   }
 
   Widget _iconText(IconData icon, String text) {
