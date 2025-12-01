@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/service_model.dart';
 import '../../models/service_application.dart';
+import '../../services/credit_service.dart';
 
 class ServiceApplicationsPage extends StatelessWidget {
   final Service service;
@@ -44,7 +45,8 @@ class ServiceApplicationsPage extends StatelessWidget {
             return Center(child: Text('Error: ${snapshot.error}'));
           }
 
-          final apps = snapshot.data?.docs.map((d) => d.data()).toList() ?? [];
+          final apps =
+              snapshot.data?.docs.map((d) => d.data()).toList() ?? [];
 
           if (apps.isEmpty) {
             return const Center(child: Text('No applications yet.'));
@@ -121,8 +123,8 @@ class _ApplicationCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _statusColor(application.status),
                   borderRadius: BorderRadius.circular(12),
@@ -202,7 +204,29 @@ class _ApplicationCard extends StatelessWidget {
     try {
       final fs = FirebaseFirestore.instance;
 
-      // 1) Mark this application as accepted, others as declined
+      // 1️⃣ Decide who is helper & helpee based on serviceType
+      final bool isNeedService = service.serviceType == 'need';
+
+      // - If serviceType == "need":
+      //     requester (service.requesterId) = helpee
+      //     this applicant (application.requesterId) = helper
+      // - If serviceType == "offer":
+      //     provider (service.providerId) = helper
+      //     this applicant (application.requesterId) = helpee
+      final String helperId = isNeedService
+          ? application.requesterId
+          : service.providerId;
+      final String helpeeId = isNeedService
+          ? service.requesterId
+          : application.requesterId;
+
+      // 2️⃣ Check that helpee has enough credits (before accept)
+      await CreditService.ensureHelpeeHasCreditsForService(
+        helpeeId: helpeeId,
+        service: service,
+      );
+
+      // 3️⃣ Get all applications for this service
       final allSnap = await fs
           .collection('serviceRequests')
           .where('serviceId', isEqualTo: application.serviceId)
@@ -218,68 +242,29 @@ class _ApplicationCard extends StatelessWidget {
         }
       }
 
-      // 2) Determine roles based on serviceType
-      final isOffer = service.serviceType.toLowerCase() == 'offer';
+      // Decide providerName / providerId if needed
+      String providerId = service.providerId;
+      String providerName = service.providerName;
 
-      late String helperId;  // who gives help (earns credits)
-      late String helpeeId;  // who receives help (spends credits)
-      late String providerId;
-      late String requesterId;
-      late String providerName;
-
-      if (isOffer) {
-        // Service type = "offer"
-        // Creator posted "I can help" → creator = helper
-        final ownerId = service.providerId.isNotEmpty
-            ? service.providerId
-            : service.requesterId;
-
-        helperId = ownerId;
-        helpeeId = application.requesterId;
-
+      if (isNeedService) {
+        // For "need" service, helper becomes provider
         providerId = helperId;
-        requesterId = helpeeId;
-        providerName = service.providerName; // already set when offering
-      } else {
-        // Service type = "need"
-        // Creator posted "I need help" → creator = helpee, applicant = helper
-        final ownerId = service.requesterId;
-
-        helperId = application.requesterId;
-        helpeeId = ownerId;
-
-        providerId = helperId;
-        requesterId = helpeeId;
         providerName = application.requesterName;
       }
 
-      final serviceRef = fs.collection('services').doc(service.id);
-
-      // 3) Update service → inprogress + provider + helper/helpee
-      batch.update(serviceRef, {
-        'serviceStatus': 'inprogress',
-        'providerId': providerId,
-        'providerName': providerName,
-        'helperId': helperId,
-        'helpeeId': helpeeId,
-      });
+      // 4️⃣ Update the service to inprogress + set helper/helpee IDs
+      batch.update(
+        fs.collection('services').doc(service.id),
+        {
+          'serviceStatus': 'inprogress',
+          'providerId': providerId,
+          'providerName': providerName,
+          'helperId': helperId,
+          'helpeeId': helpeeId,
+        },
+      );
 
       await batch.commit();
-
-      // 4) Create a transaction document
-      await fs.collection('transactions').add({
-        'serviceId': service.id,
-        'providerId': providerId,
-        'requesterId': requesterId,
-        'helperId': helperId,
-        'helpeeId': helpeeId,
-        // For now, store credits per hour; you can later change to total credits
-        'timeCredits': service.creditsPerHour,
-        'transactionStatus': 'inprogress',
-        'requestDate': service.createdDate,
-        'acceptedDate': FieldValue.serverTimestamp(),
-        'completedDate': null,
-      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Application accepted.')),

@@ -3,6 +3,7 @@ import 'package:timeswap/services/auth_service.dart';
 import 'package:timeswap/routes.dart';
 import 'package:flutter/material.dart';
 import '../welcome/widgets/clock_logo.dart'; // or swap for your image logo
+import 'package:timeswap/services/credit_service.dart';
 
 
 class SignupPage extends StatefulWidget {
@@ -58,6 +59,11 @@ class _SignupPageState extends State<SignupPage> {
       if (!mounted) return;
 
       if (user != null) {
+        await CreditService.createUserOnSignup(
+        user: user,
+        name: _nameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+      );
         // ✅ later we'll save name/phone in Firestore on create profile page
         Navigator.pushReplacementNamed(context, AppRoutes.createProfile);
       }

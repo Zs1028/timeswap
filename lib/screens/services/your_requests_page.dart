@@ -6,6 +6,7 @@ import '../../models/service_model.dart';
 import '../../routes.dart';
 import '../need_help/service_details_page.dart';
 import 'service_applications_page.dart';
+import '../../services/credit_service.dart';
 
 class YourRequestsPage extends StatelessWidget {
   const YourRequestsPage({super.key});
@@ -307,9 +308,8 @@ class _ServiceCard extends StatelessWidget {
     final bool isHelper = uid != null && service.helperId == uid;
     final bool isHelpee = uid != null && service.helpeeId == uid;
 
-    // ⭐ Now BOTH helper & helpee can rate after completion
+    // ⭐ Both helper and helpee can rate after completion
     final bool showRateReview = isCompleted && (isHelper || isHelpee);
-
 
     return Material(
       color: Colors.transparent,
@@ -460,8 +460,7 @@ class _ServiceCard extends StatelessWidget {
                           );
                         },
                         style: TextButton.styleFrom(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         child: const Text(
                           'View Applications',
@@ -484,8 +483,8 @@ class _ServiceCard extends StatelessWidget {
                           style: TextButton.styleFrom(
                             backgroundColor: const Color(0xFF7ED9A2),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 10),
                           ),
                           child: const Text(
                             'Mark as completed',
@@ -498,7 +497,7 @@ class _ServiceCard extends StatelessWidget {
                       ),
                     ],
 
-                    // ⭐ Rate & Review (only on completed + Services Requested tab)
+                    // ⭐ Rate & Review (helper or helpee, after completion)
                     if (showRateReview) ...[
                       const SizedBox(height: 8),
                       SizedBox(
@@ -508,8 +507,8 @@ class _ServiceCard extends StatelessWidget {
                           style: TextButton.styleFrom(
                             backgroundColor: const Color(0xFFF39C50),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 10),
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 10),
                           ),
                           child: const Text(
                             'Rate & Review',
@@ -533,179 +532,164 @@ class _ServiceCard extends StatelessWidget {
 
   Future<void> _markAsCompleted(BuildContext context) async {
     try {
-      final fs = FirebaseFirestore.instance;
-
-      // 1) Update service status
-      await fs.collection('services').doc(service.id).update({
-        'serviceStatus': 'completed',
-      });
-
-      // 2) Update matching transaction (if any)
-      final txSnap = await fs
-          .collection('transactions')
-          .where('serviceId', isEqualTo: service.id)
-          .where('transactionStatus', isEqualTo: 'inprogress')
-          .limit(1)
-          .get();
-
-      if (txSnap.docs.isNotEmpty) {
-        await txSnap.docs.first.reference.update({
-          'transactionStatus': 'completed',
-          'completedDate': FieldValue.serverTimestamp(),
-        });
-      }
+      // 🔥 This will:
+      //  - check credits
+      //  - move credits helpee → helper
+      //  - set serviceStatus = "completed"
+      //  - create a transaction doc
+      await CreditService.completeServiceAndTransferCredits(service);
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Service marked as completed.')),
+        const SnackBar(
+          content: Text('Service completed and credits updated.'),
+        ),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update: $e')),
+        SnackBar(content: Text('Failed to complete: $e')),
       );
     }
   }
 
+  // ---------- Rating logic (updated to support helper/helpee) ----------
+
   Future<void> _openRatingDialog(BuildContext context) async {
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please log in again to rate.')),
-    );
-    return;
-  }
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in again to rate.')),
+      );
+      return;
+    }
 
-  final uid = user.uid;
-  final bool isHelper = uid == service.helperId;
-  final bool isHelpee = uid == service.helpeeId;
+    final uid = user.uid;
+    final bool isHelper = uid == service.helperId;
+    final bool isHelpee = uid == service.helpeeId;
 
-  // Safety: if somehow neither, do nothing
-  if (!isHelper && !isHelpee) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('You are not part of this service.')),
-    );
-    return;
-  }
+    // Safety: if somehow neither, do nothing
+    if (!isHelper && !isHelpee) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You are not part of this service.')),
+      );
+      return;
+    }
 
-  // Dynamic dialog title based on role
-  final String titleText = isHelper
-      ? 'How was the person you helped?'
-      : 'How was the person who helped you?';
+    final String titleText = isHelper
+        ? 'How was the person you helped?'
+        : 'How was the person who helped you?';
 
-  int selectedStars = 5;
-  final commentCtrl = TextEditingController();
+    int selectedStars = 5;
+    final commentCtrl = TextEditingController();
 
-  final result = await showDialog<bool>(
-    context: context,
-    barrierDismissible: false,
-    builder: (ctx) {
-      return StatefulBuilder(
-        builder: (ctx, setState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Text(
-              titleText,
-              style: const TextStyle(fontSize: 16),
-            ),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 4),
-                const Text(
-                  'Rating',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (i) {
-                    final filled = i < selectedStars;
-                    return IconButton(
-                      icon: Icon(
-                        filled ? Icons.star : Icons.star_border,
-                        color: Colors.amber,
-                      ),
-                      onPressed: () {
-                        setState(() => selectedStars = i + 1);
-                      },
-                    );
-                  }),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: commentCtrl,
-                  maxLines: 3,
-                  decoration: const InputDecoration(
-                    hintText: 'Write some comment... [Optional]',
-                    border: OutlineInputBorder(),
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                titleText,
+                style: const TextStyle(fontSize: 16),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Rating',
+                    style: TextStyle(fontWeight: FontWeight.w600),
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final filled = i < selectedStars;
+                      return IconButton(
+                        icon: Icon(
+                          filled ? Icons.star : Icons.star_border,
+                          color: Colors.amber,
+                        ),
+                        onPressed: () {
+                          setState(() => selectedStars = i + 1);
+                        },
+                      );
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: commentCtrl,
+                    maxLines: 3,
+                    decoration: const InputDecoration(
+                      hintText: 'Write some comment... [Optional]',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await _saveRating(
+                      user: user,
+                      stars: selectedStars,
+                      comment: commentCtrl.text.trim(),
+                      isHelper: isHelper,
+                    );
+                    if (ctx.mounted) {
+                      Navigator.pop(ctx, true);
+                    }
+                  },
+                  child: const Text('Done'),
                 ),
               ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () async {
-                  await _saveRating(
-                    user: user,
-                    stars: selectedStars,
-                    comment: commentCtrl.text.trim(),
-                    isHelper: isHelper,
-                  );
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx, true);
-                  }
-                },
-                child: const Text('Done'),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
-
-  if (result == true && context.mounted) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Thanks for your rating!')),
+            );
+          },
+        );
+      },
     );
+
+    if (result == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Thanks for your rating!')),
+      );
+    }
   }
-}
 
   Future<void> _saveRating({
-  required User user,
-  required int stars,
-  required String comment,
-  required bool isHelper,
-}) async {
-  final fs = FirebaseFirestore.instance;
+    required User user,
+    required int stars,
+    required String comment,
+    required bool isHelper,
+  }) async {
+    final fs = FirebaseFirestore.instance;
 
-  final String reviewerId = user.uid;
-  // If I am helper → I rate helpee; if I am helpee → I rate helper
-  final String revieweeId =
-      isHelper ? service.helpeeId : service.helperId;
+    final String reviewerId = user.uid;
+    final String revieweeId =
+        isHelper ? service.helpeeId : service.helperId;
 
-  // Just in case data incomplete, don't write broken rating
-  if (revieweeId.isEmpty) return;
+    if (revieweeId.isEmpty) return;
 
-  await fs.collection('ratings').add({
-    'serviceId': service.id,
-    'transactionId': service.id,        // still using service.id as transaction
-    'reviewerId': reviewerId,
-    'revieweeId': revieweeId,
-    'reviewerRole': isHelper ? 'helper' : 'helpee',
-    'rating': stars,
-    'comment': comment,
-    'ratingDate': FieldValue.serverTimestamp(),
-  });
-}
+    await fs.collection('ratings').add({
+      'serviceId': service.id,
+      'transactionId': service.id,
+      'reviewerId': reviewerId,
+      'revieweeId': revieweeId,
+      'reviewerRole': isHelper ? 'helper' : 'helpee',
+      'rating': stars,
+      'comment': comment,
+      'ratingDate': FieldValue.serverTimestamp(),
+    });
+  }
 
-
-  static Widget _iconText(IconData icon, String text) {
+  Widget _iconText(IconData icon, String text) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
