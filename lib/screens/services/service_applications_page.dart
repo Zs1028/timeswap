@@ -202,7 +202,7 @@ class _ApplicationCard extends StatelessWidget {
     try {
       final fs = FirebaseFirestore.instance;
 
-      // Get all applications for this service
+      // 1) Mark this application as accepted, others as declined
       final allSnap = await fs
           .collection('serviceRequests')
           .where('serviceId', isEqualTo: application.serviceId)
@@ -218,17 +218,68 @@ class _ApplicationCard extends StatelessWidget {
         }
       }
 
-      // Update the service to inprogress and set provider info
-      batch.update(
-        fs.collection('services').doc(service.id),
-        {
-          'serviceStatus': 'inprogress',
-          'providerId': application.requesterId,
-          'providerName': application.requesterName,
-        },
-      );
+      // 2) Determine roles based on serviceType
+      final isOffer = service.serviceType.toLowerCase() == 'offer';
+
+      late String helperId;  // who gives help (earns credits)
+      late String helpeeId;  // who receives help (spends credits)
+      late String providerId;
+      late String requesterId;
+      late String providerName;
+
+      if (isOffer) {
+        // Service type = "offer"
+        // Creator posted "I can help" → creator = helper
+        final ownerId = service.providerId.isNotEmpty
+            ? service.providerId
+            : service.requesterId;
+
+        helperId = ownerId;
+        helpeeId = application.requesterId;
+
+        providerId = helperId;
+        requesterId = helpeeId;
+        providerName = service.providerName; // already set when offering
+      } else {
+        // Service type = "need"
+        // Creator posted "I need help" → creator = helpee, applicant = helper
+        final ownerId = service.requesterId;
+
+        helperId = application.requesterId;
+        helpeeId = ownerId;
+
+        providerId = helperId;
+        requesterId = helpeeId;
+        providerName = application.requesterName;
+      }
+
+      final serviceRef = fs.collection('services').doc(service.id);
+
+      // 3) Update service → inprogress + provider + helper/helpee
+      batch.update(serviceRef, {
+        'serviceStatus': 'inprogress',
+        'providerId': providerId,
+        'providerName': providerName,
+        'helperId': helperId,
+        'helpeeId': helpeeId,
+      });
 
       await batch.commit();
+
+      // 4) Create a transaction document
+      await fs.collection('transactions').add({
+        'serviceId': service.id,
+        'providerId': providerId,
+        'requesterId': requesterId,
+        'helperId': helperId,
+        'helpeeId': helpeeId,
+        // For now, store credits per hour; you can later change to total credits
+        'timeCredits': service.creditsPerHour,
+        'transactionStatus': 'inprogress',
+        'requestDate': service.createdDate,
+        'acceptedDate': FieldValue.serverTimestamp(),
+        'completedDate': null,
+      });
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Application accepted.')),

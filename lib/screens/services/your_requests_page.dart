@@ -299,11 +299,17 @@ class _ServiceCard extends StatelessWidget {
         service.serviceStatus.toLowerCase() == 'open';
 
     final user = FirebaseAuth.instance.currentUser;
-    final bool showRateReview =
-        service.serviceStatus.toLowerCase() == 'completed' &&
-        user != null &&
-        !isOfferedTab && // only for "Services Requested" tab
-        service.requesterId == user.uid;
+    final uid = user?.uid;
+
+    final bool isCompleted =
+        service.serviceStatus.toLowerCase() == 'completed';
+
+    final bool isHelper = uid != null && service.helperId == uid;
+    final bool isHelpee = uid != null && service.helpeeId == uid;
+
+    // ⭐ Now BOTH helper & helpee can rate after completion
+    final bool showRateReview = isCompleted && (isHelper || isHelpee);
+
 
     return Material(
       color: Colors.transparent,
@@ -454,7 +460,8 @@ class _ServiceCard extends StatelessWidget {
                           );
                         },
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 8),
                         ),
                         child: const Text(
                           'View Applications',
@@ -477,8 +484,8 @@ class _ServiceCard extends StatelessWidget {
                           style: TextButton.styleFrom(
                             backgroundColor: const Color(0xFF7ED9A2),
                             foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10),
                           ),
                           child: const Text(
                             'Mark as completed',
@@ -501,8 +508,8 @@ class _ServiceCard extends StatelessWidget {
                           style: TextButton.styleFrom(
                             backgroundColor: const Color(0xFFF39C50),
                             foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10),
                           ),
                           child: const Text(
                             'Rate & Review',
@@ -526,10 +533,27 @@ class _ServiceCard extends StatelessWidget {
 
   Future<void> _markAsCompleted(BuildContext context) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('services')
-          .doc(service.id)
-          .update({'serviceStatus': 'completed'});
+      final fs = FirebaseFirestore.instance;
+
+      // 1) Update service status
+      await fs.collection('services').doc(service.id).update({
+        'serviceStatus': 'completed',
+      });
+
+      // 2) Update matching transaction (if any)
+      final txSnap = await fs
+          .collection('transactions')
+          .where('serviceId', isEqualTo: service.id)
+          .where('transactionStatus', isEqualTo: 'inprogress')
+          .limit(1)
+          .get();
+
+      if (txSnap.docs.isNotEmpty) {
+        await txSnap.docs.first.reference.update({
+          'transactionStatus': 'completed',
+          'completedDate': FieldValue.serverTimestamp(),
+        });
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Service marked as completed.')),
@@ -542,121 +566,146 @@ class _ServiceCard extends StatelessWidget {
   }
 
   Future<void> _openRatingDialog(BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in again to rate.')),
-      );
-      return;
-    }
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please log in again to rate.')),
+    );
+    return;
+  }
 
-    int selectedStars = 5;
-    final commentCtrl = TextEditingController();
+  final uid = user.uid;
+  final bool isHelper = uid == service.helperId;
+  final bool isHelpee = uid == service.helpeeId;
 
-    final result = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: Text(
-                'How was your experience with ${service.providerName}?',
-                style: const TextStyle(fontSize: 16),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Rating',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(5, (i) {
-                      final filled = i < selectedStars;
-                      return IconButton(
-                        icon: Icon(
-                          filled ? Icons.star : Icons.star_border,
-                          color: Colors.amber,
-                        ),
-                        onPressed: () {
-                          setState(() => selectedStars = i + 1);
-                        },
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: commentCtrl,
-                    maxLines: 3,
-                    decoration: const InputDecoration(
-                      hintText: 'Write some comment... [Optional]',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel'),
+  // Safety: if somehow neither, do nothing
+  if (!isHelper && !isHelpee) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('You are not part of this service.')),
+    );
+    return;
+  }
+
+  // Dynamic dialog title based on role
+  final String titleText = isHelper
+      ? 'How was the person you helped?'
+      : 'How was the person who helped you?';
+
+  int selectedStars = 5;
+  final commentCtrl = TextEditingController();
+
+  final result = await showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: Text(
+              titleText,
+              style: const TextStyle(fontSize: 16),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 4),
+                const Text(
+                  'Rating',
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
-                ElevatedButton(
-                  onPressed: () async {
-                    await _saveRating(
-                      user: user,
-                      stars: selectedStars,
-                      comment: commentCtrl.text.trim(),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) {
+                    final filled = i < selectedStars;
+                    return IconButton(
+                      icon: Icon(
+                        filled ? Icons.star : Icons.star_border,
+                        color: Colors.amber,
+                      ),
+                      onPressed: () {
+                        setState(() => selectedStars = i + 1);
+                      },
                     );
-                    if (ctx.mounted) {
-                      Navigator.pop(ctx, true);
-                    }
-                  },
-                  child: const Text('Done'),
+                  }),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: 'Write some comment... [Optional]',
+                    border: OutlineInputBorder(),
+                  ),
                 ),
               ],
-            );
-          },
-        );
-      },
-    );
-
-    if (result == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Thanks for your rating!')),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  await _saveRating(
+                    user: user,
+                    stars: selectedStars,
+                    comment: commentCtrl.text.trim(),
+                    isHelper: isHelper,
+                  );
+                  if (ctx.mounted) {
+                    Navigator.pop(ctx, true);
+                  }
+                },
+                child: const Text('Done'),
+              ),
+            ],
+          );
+        },
       );
-    }
+    },
+  );
+
+  if (result == true && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Thanks for your rating!')),
+    );
   }
+}
 
   Future<void> _saveRating({
-    required User user,
-    required int stars,
-    required String comment,
-  }) async {
-    final fs = FirebaseFirestore.instance;
+  required User user,
+  required int stars,
+  required String comment,
+  required bool isHelper,
+}) async {
+  final fs = FirebaseFirestore.instance;
 
-    final reviewerId = user.uid;
-    final revieweeId = service.providerId;       // helper
-    final transactionId = service.id;            // use service as transaction
+  final String reviewerId = user.uid;
+  // If I am helper → I rate helpee; if I am helpee → I rate helper
+  final String revieweeId =
+      isHelper ? service.helpeeId : service.helperId;
 
-    await fs.collection('ratings').add({
-      'serviceId': service.id,
-      'transactionId': transactionId,
-      'reviewerId': reviewerId,
-      'revieweeId': revieweeId,
-      'rating': stars,
-      'comment': comment,
-      'ratingDate': FieldValue.serverTimestamp(),
-    });
-  }
+  // Just in case data incomplete, don't write broken rating
+  if (revieweeId.isEmpty) return;
 
-  Widget _iconText(IconData icon, String text) {
+  await fs.collection('ratings').add({
+    'serviceId': service.id,
+    'transactionId': service.id,        // still using service.id as transaction
+    'reviewerId': reviewerId,
+    'revieweeId': revieweeId,
+    'reviewerRole': isHelper ? 'helper' : 'helpee',
+    'rating': stars,
+    'comment': comment,
+    'ratingDate': FieldValue.serverTimestamp(),
+  });
+}
+
+
+  static Widget _iconText(IconData icon, String text) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

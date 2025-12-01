@@ -13,8 +13,14 @@ class Service {
   final String category;
   final String serviceStatus;
   final String requesterId;
-  final String serviceType;   // "need" or "offer"
+  final String serviceType; // "need" or "offer"
   final DateTime createdDate;
+
+  /// Roles for time-credit logic
+  /// helperId = person who gives help (earns credits)
+  /// helpeeId = person who receives help (spends credits)
+  final String helperId;
+  final String helpeeId;
 
   Service({
     required this.id,
@@ -31,10 +37,13 @@ class Service {
     required this.requesterId,
     required this.serviceType,
     required this.createdDate,
+    this.helperId = '',
+    this.helpeeId = '',
   });
 
   factory Service.fromFirestore(
-      DocumentSnapshot<Map<String, dynamic>> doc) {
+    DocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
     final data = doc.data() ?? {};
     return Service(
       id: doc.id,
@@ -49,9 +58,11 @@ class Service {
       category: data['category'] ?? '',
       serviceStatus: data['serviceStatus'] ?? '',
       requesterId: data['requesterId'] ?? '',
-      serviceType: data['serviceType'] ?? 'need', // default
+      serviceType: data['serviceType'] ?? 'need',
       createdDate:
           (data['createdDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      helperId: data['helperId'] ?? '',
+      helpeeId: data['helpeeId'] ?? '',
     );
   }
 }
