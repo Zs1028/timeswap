@@ -69,7 +69,7 @@ class CreditService {
   /// Called when service is marked as completed:
   ///  - deduct credits from helpee
   ///  - add credits to helper
-  ///  - update serviceStatus to "completed"
+  ///  - update serviceStatus to "completed" + completedDate
   ///  - create a record in "transactions"
   ///
   /// All inside a Firestore transaction 👉 atomic.
@@ -107,11 +107,15 @@ class CreditService {
       tx.update(helpeeRef, {'timeCredits': helpeeBalance - credits});
       tx.update(helperRef, {'timeCredits': helperBalance + credits});
 
-      // 2) Mark service as completed
-      tx.update(serviceRef, {'serviceStatus': 'completed'});
+      // 2) Mark service as completed + set completedDate
+      tx.update(serviceRef, {
+        'serviceStatus': 'completed',
+        'completedDate': FieldValue.serverTimestamp(),
+      });
 
       // 3) Log transaction for history
       final txnRef = _fs.collection('transactions').doc();
+
       tx.set(txnRef, {
         'serviceId': service.id,
         'helperId': helperId,
@@ -119,6 +123,15 @@ class CreditService {
         'credits': credits,
         'serviceType': service.serviceType, // "need" / "offer"
         'status': 'completed',
+
+        // Timeline fields for your FYP report
+        'requestDate': Timestamp.fromDate(service.createdDate),
+        'acceptedDate': service.acceptedDate != null
+            ? Timestamp.fromDate(service.acceptedDate!)
+            : FieldValue.serverTimestamp(), // fallback if not set
+        'completedDate': FieldValue.serverTimestamp(),
+
+        // optional meta
         'createdAt': FieldValue.serverTimestamp(),
       });
     });

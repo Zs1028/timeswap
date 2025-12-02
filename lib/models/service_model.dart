@@ -15,6 +15,11 @@ class Service {
   final String requesterId;
   final String serviceType; // "need" or "offer"
   final DateTime createdDate;
+  /// Timestamps for the transaction lifecycle
+  /// acceptedDate  = when helper was accepted (serviceStatus -> inprogress)
+  /// completedDate = when service was marked completed
+  final DateTime? acceptedDate;
+  final DateTime? completedDate;
 
   /// Roles for time-credit logic
   /// helperId = person who gives help (earns credits)
@@ -39,6 +44,8 @@ class Service {
     required this.createdDate,
     this.helperId = '',
     this.helpeeId = '',
+    this.acceptedDate,
+    this.completedDate,
   });
 
   factory Service.fromFirestore(
@@ -63,6 +70,8 @@ class Service {
           (data['createdDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       helperId: data['helperId'] ?? '',
       helpeeId: data['helpeeId'] ?? '',
+      acceptedDate: (data['acceptedDate'] as Timestamp?)?.toDate(),
+      completedDate: (data['completedDate'] as Timestamp?)?.toDate(),
     );
   }
 }

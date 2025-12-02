@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../models/service_model.dart';
 import '../../models/service_application.dart';
-import '../../services/credit_service.dart';
+import 'package:timeswap/services/credit_service.dart';
 
 class ServiceApplicationsPage extends StatelessWidget {
   final Service service;
@@ -123,8 +123,8 @@ class _ApplicationCard extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: _statusColor(application.status),
                   borderRadius: BorderRadius.circular(12),
@@ -204,29 +204,23 @@ class _ApplicationCard extends StatelessWidget {
     try {
       final fs = FirebaseFirestore.instance;
 
-      // 1️⃣ Decide who is helper & helpee based on serviceType
-      final bool isNeedService = service.serviceType == 'need';
+      // Decide roles based on serviceType
+      final bool isOffer = service.serviceType == 'offer';
 
-      // - If serviceType == "need":
-      //     requester (service.requesterId) = helpee
-      //     this applicant (application.requesterId) = helper
-      // - If serviceType == "offer":
-      //     provider (service.providerId) = helper
-      //     this applicant (application.requesterId) = helpee
-      final String helperId = isNeedService
-          ? application.requesterId
-          : service.providerId;
-      final String helpeeId = isNeedService
-          ? service.requesterId
-          : application.requesterId;
+      // helper = person who gives help (earns credits)
+      // helpee = person who receives help (spends credits)
+      final String helperId =
+          isOffer ? service.providerId : application.requesterId;
+      final String helpeeId =
+          isOffer ? application.requesterId : service.requesterId;
 
-      // 2️⃣ Check that helpee has enough credits (before accept)
+      // 1️⃣ Check that helpee has enough credits before accepting
       await CreditService.ensureHelpeeHasCreditsForService(
         helpeeId: helpeeId,
         service: service,
       );
 
-      // 3️⃣ Get all applications for this service
+      // 2️⃣ Get all applications for this service
       final allSnap = await fs
           .collection('serviceRequests')
           .where('serviceId', isEqualTo: application.serviceId)
@@ -234,6 +228,7 @@ class _ApplicationCard extends StatelessWidget {
 
       final batch = fs.batch();
 
+      // Mark one as accepted, others as declined
       for (final doc in allSnap.docs) {
         if (doc.id == application.id) {
           batch.update(doc.reference, {'status': 'accepted'});
@@ -242,27 +237,23 @@ class _ApplicationCard extends StatelessWidget {
         }
       }
 
-      // Decide providerName / providerId if needed
-      String providerId = service.providerId;
-      String providerName = service.providerName;
+      // 3️⃣ Update the service doc
+      final serviceRef = fs.collection('services').doc(service.id);
 
-      if (isNeedService) {
-        // For "need" service, helper becomes provider
-        providerId = helperId;
-        providerName = application.requesterName;
+      final Map<String, dynamic> updates = {
+        'serviceStatus': 'inprogress',
+        'helperId': helperId,
+        'helpeeId': helpeeId,
+        'acceptedDate': FieldValue.serverTimestamp(),
+      };
+
+      // For "need" posts, we also want to show helper info (provider)
+      if (!isOffer) {
+        updates['providerId'] = helperId;
+        updates['providerName'] = application.requesterName;
       }
 
-      // 4️⃣ Update the service to inprogress + set helper/helpee IDs
-      batch.update(
-        fs.collection('services').doc(service.id),
-        {
-          'serviceStatus': 'inprogress',
-          'providerId': providerId,
-          'providerName': providerName,
-          'helperId': helperId,
-          'helpeeId': helpeeId,
-        },
-      );
+      batch.update(serviceRef, updates);
 
       await batch.commit();
 
