@@ -622,10 +622,16 @@ class _BottomNav extends StatelessWidget {
           case 2:
             Navigator.pushNamed(context, AppRoutes.yourRequests);
             break;
-          default:
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Tab $i coming soon')),
-            );
+          case 3:
+      // Messages – you can route later, for now just snackbar
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Messages coming soon')),
+      );
+        break;
+          case 4:
+      // Profile tab
+            Navigator.pushNamed(context, AppRoutes.profile);
+            break;
         }
       },
     );

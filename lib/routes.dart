@@ -14,6 +14,9 @@ import 'screens/services/services_page.dart';
 import 'screens/services/your_requests_page.dart';
 import 'screens/credits/time_credit_details_page.dart';           // ⭐ add this
 import 'screens/credits/transactions_history_page.dart';  // ⭐ add this
+import 'screens/profile/profile_page.dart';
+import 'screens/profile/settings_page.dart';
+
 
 class AppRoutes {
   static const welcome = '/';
@@ -27,9 +30,11 @@ class AppRoutes {
   static const addOffering = '/offer-help/add';
   static const services = '/services';
   static const yourRequests = '/your-requests';
-
   static const timeCredits = '/timeCredits';                 // ⭐ added
   static const transactionHistory = '/transactionHistory';   // ⭐ added
+  static const profile = '/profile';
+  static const settings = '/settings';
+
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -77,6 +82,12 @@ class AppRoutes {
 
       case transactionHistory:
         return _buildRoute(const TransactionHistoryPage(), requireAuth: true);
+
+      case AppRoutes.profile:
+        return _buildRoute(const ProfilePage(), requireAuth: true);
+
+      case AppRoutes.settings:
+        return _buildRoute(const SettingsPage(), requireAuth: true);
 
       // Default → fallback
       default:
