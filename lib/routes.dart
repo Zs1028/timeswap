@@ -12,6 +12,8 @@ import 'screens/need_help/add_request_page.dart';
 import 'screens/offer_help/add_offering_page.dart';
 import 'screens/services/services_page.dart';
 import 'screens/services/your_requests_page.dart';
+import 'screens/credits/time_credit_details_page.dart';           // ⭐ add this
+import 'screens/credits/transactions_history_page.dart';  // ⭐ add this
 
 class AppRoutes {
   static const welcome = '/';
@@ -26,43 +28,63 @@ class AppRoutes {
   static const services = '/services';
   static const yourRequests = '/your-requests';
 
+  static const timeCredits = '/timeCredits';                 // ⭐ added
+  static const transactionHistory = '/transactionHistory';   // ⭐ added
+
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
     switch (settings.name) {
       case welcome:
         return _buildRoute(const WelcomePage());
+
       case welcome2:
         return _buildRoute(const WelcomePage2());
+
       case signup:
         return _buildRoute(const SignupPage());
+
       case login:
         return _buildRoute(const LoginPage());
 
       // 🔒 require login
       case createProfile:
         return _buildRoute(const CreateProfilePage(), requireAuth: true);
+
       case home:
         return _buildRoute(const HomePage(), requireAuth: true);
+
       case needHelpFilter:
         return PageRouteBuilder(
           opaque: false,
           barrierColor: Colors.black54,
           pageBuilder: (_, __, ___) => const NeedHelpFiltersPage(),
         );
+
       case addRequest:
         return _buildRoute(const AddRequestPage(), requireAuth: true);
+
       case addOffering:
         return _buildRoute(const AddOfferingPage(), requireAuth: true);
+
       case services:
         return _buildRoute(const ServicesPage(), requireAuth: true);
+
       case yourRequests:
         return _buildRoute(const YourRequestsPage(), requireAuth: true);
 
+      // ⭐ New pages
+      case timeCredits:
+        return _buildRoute(const TimeCreditPage(), requireAuth: true);
+
+      case transactionHistory:
+        return _buildRoute(const TransactionHistoryPage(), requireAuth: true);
+
+      // Default → fallback
       default:
         return _buildRoute(const WelcomePage());
     }
   }
 
-  /// Helper to optionally require FirebaseAuth user
+  /// Helper: Optionally require FirebaseAuth
   static MaterialPageRoute _buildRoute(
     Widget page, {
     bool requireAuth = false,
@@ -70,7 +92,6 @@ class AppRoutes {
     if (requireAuth) {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        // If not logged in, send to LoginPage
         return MaterialPageRoute(builder: (_) => const LoginPage());
       }
     }

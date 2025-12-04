@@ -118,6 +118,7 @@ class CreditService {
 
       tx.set(txnRef, {
         'serviceId': service.id,
+        'serviceTitle': service.serviceTitle,
         'helperId': helperId,
         'helpeeId': helpeeId,
         'credits': credits,
