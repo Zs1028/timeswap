@@ -61,7 +61,7 @@ class WelcomePage2 extends StatelessWidget {
               LoginText( // use the widget instead of _buildLoginText()
                 onTap: () {
                   debugPrint('Login tapped');
-                  // later: Navigator.pushNamed(context, AppRoutes.login);
+                     Navigator.pushNamed(context, AppRoutes.login);
                 },
               ),
             ],
