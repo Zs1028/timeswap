@@ -8,6 +8,7 @@ class CreditService {
   static final _fs = FirebaseFirestore.instance;
 
   /// How many credits a brand-new user gets
+  /// (still an int, but we will store/read as num/double)
   static const int defaultInitialCredits = 10;
 
   /// Called once after signup to create the user doc with initial balance
@@ -33,19 +34,25 @@ class CreditService {
       'name': name,
       'phone': phone,
       'email': user.email,
+      // Store as numeric – Firestore will happily treat this as a number (int/double)
       'timeCredits': defaultInitialCredits,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
   /// Simple helper: does this user have at least [requiredCredits]?
+  /// Now supports fractional credits (double).
   static Future<bool> userHasEnoughCredits({
     required String userId,
-    required int requiredCredits,
+    required double requiredCredits,
   }) async {
     final doc = await _fs.collection('users').doc(userId).get();
     final data = doc.data();
-    final current = (data?['timeCredits'] ?? 0) as int;
+
+    // Read as num → convert to double; works for old int and new double values
+    final double current =
+        (data?['timeCredits'] as num?)?.toDouble() ?? 0.0;
+
     return current >= requiredCredits;
   }
 
@@ -57,7 +64,7 @@ class CreditService {
   }) async {
     final ok = await userHasEnoughCredits(
       userId: helpeeId,
-      requiredCredits: service.creditsPerHour,
+      requiredCredits: service.creditsPerHour, // now double
     );
     if (!ok) {
       throw Exception(
@@ -78,7 +85,7 @@ class CreditService {
   ) async {
     final helperId = service.helperId;
     final helpeeId = service.helpeeId;
-    final credits = service.creditsPerHour;
+    final double credits = service.creditsPerHour; // double
 
     if (helperId.isEmpty || helpeeId.isEmpty) {
       throw Exception('Helper or helpee not set for this service.');
@@ -92,10 +99,11 @@ class CreditService {
       final helperSnap = await tx.get(helperRef);
       final helpeeSnap = await tx.get(helpeeRef);
 
-      final helperBalance =
-          (helperSnap.data()?['timeCredits'] ?? 0) as int;
-      final helpeeBalance =
-          (helpeeSnap.data()?['timeCredits'] ?? 0) as int;
+      // Read balances as num → double
+      final double helperBalance =
+          (helperSnap.data()?['timeCredits'] as num?)?.toDouble() ?? 0.0;
+      final double helpeeBalance =
+          (helpeeSnap.data()?['timeCredits'] as num?)?.toDouble() ?? 0.0;
 
       if (helpeeBalance < credits) {
         throw Exception(
@@ -103,7 +111,7 @@ class CreditService {
         );
       }
 
-      // 1) Update balances
+      // 1) Update balances (can now be fractional credits)
       tx.update(helpeeRef, {'timeCredits': helpeeBalance - credits});
       tx.update(helperRef, {'timeCredits': helperBalance + credits});
 
@@ -121,7 +129,7 @@ class CreditService {
         'serviceTitle': service.serviceTitle,
         'helperId': helperId,
         'helpeeId': helpeeId,
-        'credits': credits,
+        'credits': credits, // can be 1.5, 2.0, etc.
         'serviceType': service.serviceType, // "need" / "offer"
         'status': 'completed',
 

@@ -8,13 +8,14 @@ class Service {
   final String providerId;
   final String location;
   final String availableTiming;
-  final int timeLimitDays;
-  final int creditsPerHour;
+  final int timeLimitDays;        // keep as int, default 0 if missing
+  final double creditsPerHour;    // 🔥 now double
   final String category;
   final String serviceStatus;
   final String requesterId;
   final String serviceType; // "need" or "offer"
   final DateTime createdDate;
+
   /// Timestamps for the transaction lifecycle
   /// acceptedDate  = when helper was accepted (serviceStatus -> inprogress)
   /// completedDate = when service was marked completed
@@ -52,6 +53,11 @@ class Service {
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
     final data = doc.data() ?? {};
+
+    // Handle both old int + new double for credits/timeLimitDays
+    final num? creditsRaw = data['creditsPerHour'] as num?;
+    final num? timeLimitRaw = data['timeLimitDays'] as num?;
+
     return Service(
       id: doc.id,
       serviceTitle: data['serviceTitle'] ?? '',
@@ -60,8 +66,8 @@ class Service {
       providerId: data['providerId'] ?? '',
       location: data['location'] ?? '',
       availableTiming: data['availableTiming'] ?? '',
-      timeLimitDays: (data['timeLimitDays'] ?? 0) as int,
-      creditsPerHour: (data['creditsPerHour'] ?? 0) as int,
+      timeLimitDays: timeLimitRaw?.toInt() ?? 0,          // if missing → 0
+      creditsPerHour: creditsRaw?.toDouble() ?? 0.0,      // 🔥 safe cast
       category: data['category'] ?? '',
       serviceStatus: data['serviceStatus'] ?? '',
       requesterId: data['requesterId'] ?? '',

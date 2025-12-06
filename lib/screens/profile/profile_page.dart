@@ -57,7 +57,11 @@ class ProfilePage extends StatelessWidget {
             final location = (data['location'] as String?) ?? 'Not set';
             final about = (data['about'] as String?) ??
                 'Tell others more about yourself.';
-            final timeCredits = (data['timeCredits'] ?? 0) as int;
+
+            // 🔥 timeCredits as double (works for old int + new double)
+            final double timeCredits =
+                (data['timeCredits'] as num?)?.toDouble() ?? 0.0;
+
             final skillsRaw = data['skills'];
             final List<String> skills = skillsRaw is List
                 ? skillsRaw.map((e) => e.toString()).toList()
@@ -96,7 +100,7 @@ class ProfilePage extends StatelessWidget {
 class _ProfileHeaderCard extends StatelessWidget {
   final String name;
   final String location;
-  final int credits;
+  final double credits; // 🔥 now double
   final String? photoUrl;
 
   const _ProfileHeaderCard({
@@ -105,6 +109,13 @@ class _ProfileHeaderCard extends StatelessWidget {
     required this.credits,
     this.photoUrl,
   });
+
+  String _formatCredits(double c) {
+    if (c == c.roundToDouble()) {
+      return c.toInt().toString(); // 10.0 -> "10"
+    }
+    return c.toString(); // 1.5 -> "1.5"
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -185,7 +196,7 @@ class _ProfileHeaderCard extends StatelessWidget {
                     const Icon(Icons.hourglass_bottom, size: 16),
                     const SizedBox(width: 4),
                     Text(
-                      '$credits credits',
+                      '${_formatCredits(credits)} credits',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
@@ -321,8 +332,10 @@ class _RatingsCard extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child:
-                Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator()),
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: CircularProgressIndicator(),
+            ),
           );
         }
 
@@ -343,8 +356,10 @@ class _RatingsCard extends StatelessWidget {
 
         double avgRating = 0;
         if (docs.isNotEmpty) {
-          final total = docs.fold<num>(
-              0, (sum, d) => sum + (d.data()['rating'] ?? 0) as int);
+          final total = docs.fold<num>(0, (sum, d) {
+            final rating = (d.data()['rating'] as num?) ?? 0;
+            return sum + rating;
+          });
           avgRating = total / docs.length;
         }
 
@@ -401,7 +416,7 @@ class _RatingsCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 ...docs.map((d) {
                   final data = d.data();
-                  final rating = (data['rating'] ?? 0) as int;
+                  final rating = (data['rating'] as num?)?.toInt() ?? 0;
                   final comment = (data['comment'] as String?) ?? '';
                   final ts = data['ratingDate'] as Timestamp?;
                   final dateTime = ts?.toDate() ?? DateTime.now();
