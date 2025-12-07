@@ -4,29 +4,30 @@ class Service {
   final String id;
   final String serviceTitle;
   final String serviceDescription;
+
   final String providerName;
   final String providerId;
-  final String location;
-  final String availableTiming;
-  final int timeLimitDays;        // keep as int, default 0 if missing
-  final double creditsPerHour;    // 🔥 now double
+
+  final String location;            // "Selangor - Subang Jaya"
+  final String locationDetails;     // optional extra info
+  final String locationState;       // e.g. "Kuala Lumpur"
+
+  final String availableTiming;     // "8/12/2025, 9:00 AM – 11:00 AM"
+  final String flexibleNotes;       // optional: "Every Saturday morning"
+
+  final double creditsPerHour;       // 1.0, 1.5, 2.0, 3.0 etc
   final String category;
-  final String serviceStatus;
+
+  final String serviceStatus;       // open, inprogress, completed
   final String requesterId;
-  final String serviceType; // "need" or "offer"
+  final String serviceType;         // "need" or "offer"
   final DateTime createdDate;
 
-  /// Timestamps for the transaction lifecycle
-  /// acceptedDate  = when helper was accepted (serviceStatus -> inprogress)
-  /// completedDate = when service was marked completed
+  // --- Lifecycle + participation ---
+  final String helperId;            // person who gives help
+  final String helpeeId;            // person who receives help
   final DateTime? acceptedDate;
   final DateTime? completedDate;
-
-  /// Roles for time-credit logic
-  /// helperId = person who gives help (earns credits)
-  /// helpeeId = person who receives help (spends credits)
-  final String helperId;
-  final String helpeeId;
 
   Service({
     required this.id,
@@ -36,13 +37,15 @@ class Service {
     required this.providerId,
     required this.location,
     required this.availableTiming,
-    required this.timeLimitDays,
     required this.creditsPerHour,
     required this.category,
     required this.serviceStatus,
     required this.requesterId,
     required this.serviceType,
     required this.createdDate,
+    this.locationDetails = '',
+    this.locationState = '',
+    this.flexibleNotes = '',
     this.helperId = '',
     this.helpeeId = '',
     this.acceptedDate,
@@ -54,9 +57,11 @@ class Service {
   ) {
     final data = doc.data() ?? {};
 
-    // Handle both old int + new double for credits/timeLimitDays
-    final num? creditsRaw = data['creditsPerHour'] as num?;
-    final num? timeLimitRaw = data['timeLimitDays'] as num?;
+    // Normalize credits (can be int or double)
+    final rawCredits = data['creditsPerHour'];
+    final doubleCredits = rawCredits is int
+        ? rawCredits.toDouble()
+        : (rawCredits is num ? rawCredits.toDouble() : 0.0);
 
     return Service(
       id: doc.id,
@@ -64,16 +69,24 @@ class Service {
       serviceDescription: data['serviceDescription'] ?? '',
       providerName: data['providerName'] ?? '',
       providerId: data['providerId'] ?? '',
+
       location: data['location'] ?? '',
+      locationDetails: data['locationDetails'] ?? '',
+      locationState: data['locationState'] ?? data['state'] ?? '',
+
       availableTiming: data['availableTiming'] ?? '',
-      timeLimitDays: timeLimitRaw?.toInt() ?? 0,          // if missing → 0
-      creditsPerHour: creditsRaw?.toDouble() ?? 0.0,      // 🔥 safe cast
+      flexibleNotes: data['flexibleNotes'] ?? '',
+
+      creditsPerHour: doubleCredits,
       category: data['category'] ?? '',
-      serviceStatus: data['serviceStatus'] ?? '',
+
+      serviceStatus: data['serviceStatus'] ?? 'open',
       requesterId: data['requesterId'] ?? '',
       serviceType: data['serviceType'] ?? 'need',
+
       createdDate:
           (data['createdDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
+
       helperId: data['helperId'] ?? '',
       helpeeId: data['helpeeId'] ?? '',
       acceptedDate: (data['acceptedDate'] as Timestamp?)?.toDate(),

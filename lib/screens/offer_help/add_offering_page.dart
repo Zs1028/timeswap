@@ -109,97 +109,109 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
   }
 
   Future<void> _submit() async {
-    // 1️⃣ Get logged-in user
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in first.')),
-      );
-      return;
-    }
+  // 1️⃣ Get logged-in user
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please log in first.')),
+    );
+    return;
+  }
 
-    // 2️⃣ Validate basic fields
-    if (!_formKey.currentState!.validate()) return;
+  // 2️⃣ Validate basic fields
+  if (!_formKey.currentState!.validate()) return;
 
-    final String currentUserId = user.uid;
-    final String currentUserName = user.email ?? 'TimeSwap User';
+  final String currentUserId = user.uid;
 
-    final title = _titleController.text.trim();
-    final description = _descriptionController.text.trim();
-    final date = _dateController.text.trim();
-    final from = _fromTimeController.text.trim();
-    final to = _toTimeController.text.trim();
-    final category = _selectedCategory ?? '';
-    final state = _selectedState ?? '';
-    final locationDetails = _locationDetailsController.text.trim();
-    final flexibleNotes = _flexibleNotesController.text.trim();
-    final creditsRequired = _selectedCreditsRequired;
+  // 🔹 NEW: fetch display name from `users` collection (fallback to email)
+  final userDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(currentUserId)
+      .get();
 
-    // extra safety (should already be covered by validators)
-    if (title.isEmpty ||
-        description.isEmpty ||
-        date.isEmpty ||
-        from.isEmpty ||
-        to.isEmpty ||
-        category.isEmpty ||
-        state.isEmpty ||
-        creditsRequired == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields.')),
-      );
-      return;
-    }
+  final String providerName =
+      (userDoc.data()?['name'] as String?) ??
+      user.displayName ??
+      user.email ??
+      'TimeSwap User';
 
-    // build location string (state + optional details) – keeps old `location` usage working
-    final location = [
-      state,
-      if (locationDetails.isNotEmpty) locationDetails,
-    ].join(' - ');
+  final title = _titleController.text.trim();
+  final description = _descriptionController.text.trim();
+  final date = _dateController.text.trim();
+  final from = _fromTimeController.text.trim();
+  final to = _toTimeController.text.trim();
+  final category = _selectedCategory ?? '';
+  final state = _selectedState ?? '';
+  final locationDetails = _locationDetailsController.text.trim();
+  final flexibleNotes = _flexibleNotesController.text.trim();
+  final creditsRequired = _selectedCreditsRequired;
 
-    final availableTiming = '$date, $from - $to';
+  // extra safety (should already be covered by validators)
+  if (title.isEmpty ||
+      description.isEmpty ||
+      date.isEmpty ||
+      from.isEmpty ||
+      to.isEmpty ||
+      category.isEmpty ||
+      state.isEmpty ||
+      creditsRequired == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill in all required fields.')),
+    );
+    return;
+  }
 
-    setState(() => _isSubmitting = true);
+  // build location string (state + optional details)
+  final location = [
+    state,
+    if (locationDetails.isNotEmpty) locationDetails,
+  ].join(' - ');
 
-    try {
-      await FirebaseFirestore.instance.collection('services').add({
-        'serviceTitle': title,
-        'serviceDescription': description,
-        'category': category,
-        'location': location,
-        'state': state,
-        'locationDetails': locationDetails,
-        'availableTiming': availableTiming,
-        'flexibleNotes': flexibleNotes,
-        // NOTE: field name kept as creditsPerHour so existing cards continue to work
-        'creditsPerHour': creditsRequired,
-        'serviceStatus': 'open',
+  final availableTiming = '$date, $from - $to';
 
-        // ⭐ OFFER HELP LOGIC
-        'providerId': currentUserId,
-        'providerName': currentUserName,
+  setState(() => _isSubmitting = true);
 
-        // requester stays same logic as before
-        'requesterId': currentUserId,
-        'serviceType': 'offer',
-        'createdDate': FieldValue.serverTimestamp(),
-      });
+  try {
+    await FirebaseFirestore.instance.collection('services').add({
+      'serviceTitle': title,
+      'serviceDescription': description,
+      'category': category,
+      'location': location,
+      'state': state,
+      'locationDetails': locationDetails,
+      'availableTiming': availableTiming,
+      'flexibleNotes': flexibleNotes,
+      // keep same field name so existing UI still works
+      'creditsPerHour': creditsRequired,
+      'serviceStatus': 'open',
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Offering created successfully.')),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create offering: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      // ⭐ OFFER HELP LOGIC
+      'providerId': currentUserId,
+      'providerName': providerName, // ← use name now
+
+      // requester stays same logic as before
+      'requesterId': currentUserId,
+      'serviceType': 'offer',
+      'createdDate': FieldValue.serverTimestamp(),
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Offering created successfully.')),
+    );
+    Navigator.of(context).pop();
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to create offering: $e')),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
     }
   }
+}
+
 
   @override
   Widget build(BuildContext context) {

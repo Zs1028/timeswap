@@ -7,7 +7,7 @@ import '../../models/service_model.dart';
 class ServiceDetailsPage extends StatelessWidget {
   final Service service;
 
-  /// NEW: controls whether we show the "Request this Service" button.
+  /// controls whether we show the action button at the bottom
   final bool showRequestButton;
 
   const ServiceDetailsPage({
@@ -16,22 +16,37 @@ class ServiceDetailsPage extends StatelessWidget {
     this.showRequestButton = true,
   });
 
-
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final currentUserId = user?.uid ?? '';
-    
-    final durationText = '2 hours estimated'; // TODO: store in Firestore later
-    final timeCreditsText = '${service.creditsPerHour} credits / hour';
 
-    // Decide if user can request based on ownership + status
-    final bool isMyRequest = service.requesterId == currentUserId;
+    // ----- Duration & credits formatting -----
+    final double credits = service.creditsPerHour;
+    final String creditsValue = _formatNumber(credits);
 
-    final bool baseCanRequest =
-        !isMyRequest && service.serviceStatus.toLowerCase() == 'open';
+    String durationText;
+    if (credits <= 0) {
+      durationText = 'Not specified';
+    } else {
+      durationText =
+          '$creditsValue hour${credits == 1.0 ? '' : 's'} estimated';
+    }
 
-    final bool showButton = showRequestButton && baseCanRequest;
+    final timeCreditsText = '$creditsValue credits required';
+
+    // ----- Button visibility & label -----
+    final bool isMyService = service.requesterId == currentUserId;
+    final bool isOpen = service.serviceStatus.toLowerCase() == 'open';
+
+    // if I'm the owner OR status not open → hide
+    final bool baseCanRequest = !isMyService && isOpen;
+    final bool canShowButton = showRequestButton && baseCanRequest;
+
+    // label depends on serviceType
+    final bool isOfferListing = service.serviceType == 'offer';
+    final String buttonLabel =
+        isOfferListing ? 'Request this Service' : 'Offer this Service';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
@@ -56,6 +71,7 @@ class ServiceDetailsPage extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 children: [
+                  // Top card
                   _serviceInfoCard(
                     title: service.serviceType == 'offer'
                         ? 'Offer Help: ${service.serviceTitle}'
@@ -66,20 +82,28 @@ class ServiceDetailsPage extends StatelessWidget {
                     timeCreditsText: timeCreditsText,
                   ),
                   const SizedBox(height: 16),
+
+                  // Middle card (provider info)
                   _providerInfoCard(context),
+
                   const SizedBox(height: 16),
+
+                  // Bottom card (availability + location)
                   _availabilityCard(),
                 ],
               ),
             ),
-            if (showButton) _bottomRequestButton(context),
+
+            // Bottom action button
+            if (canShowButton)
+              _bottomActionButton(context, buttonLabel, isOfferListing),
           ],
         ),
       ),
     );
   }
 
-  // ---------- Top card ----------
+  // ---------- Top card: Service info ----------
   Widget _serviceInfoCard({
     required String title,
     required String description,
@@ -159,10 +183,9 @@ class ServiceDetailsPage extends StatelessWidget {
     );
   }
 
-  // ---------- Middle card ----------
+  // ---------- Middle card: Provider info ----------
   Widget _providerInfoCard(BuildContext context) {
-    const rating = 4.8;
-    const reviewCount = 23;
+    final providerId = service.providerId;
 
     return _roundedCard(
       child: Padding(
@@ -194,43 +217,81 @@ class ServiceDetailsPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Column(
+
+            // Ratings pulled from "ratings" collection (same idea as Profile page)
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: FirebaseFirestore.instance
+                  .collection('ratings')
+                  .where('revieweeId', isEqualTo: providerId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                double avgRating = 0.0;
+                int reviewCount = 0;
+
+                if (snapshot.hasData) {
+                  final docs = snapshot.data!.docs;
+                  reviewCount = docs.length;
+                  if (reviewCount > 0) {
+                    num total = 0;
+                    for (final d in docs) {
+                      final r = d.data()['rating'];
+                      if (r is int) {
+                        total += r;
+                      } else if (r is num) {
+                        total += r;
+                      }
+                    }
+                    avgRating = total / reviewCount;
+                  }
+                }
+
+                final ratingText = reviewCount == 0
+                    ? 'No ratings yet'
+                    : '${avgRating.toStringAsFixed(1)}/5';
+
+                final reviewsText = '$reviewCount review'
+                    '${reviewCount == 1 ? '' : 's'}';
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    const Text(
-                      'Overall Ratings',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    Column(
+                      children: [
+                        const Text(
+                          'Overall Ratings',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          ratingText,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${rating.toStringAsFixed(1)}/5',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    Column(
+                      children: [
+                        const Text(
+                          'Number of Reviews',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          reviewsText,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
                   ],
-                ),
-                Column(
-                  children: [
-                    const Text(
-                      'Number of Reviews',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$reviewCount reviews',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ],
+                );
+              },
             ),
+
             const SizedBox(height: 14),
             SizedBox(
               width: 170,
@@ -260,8 +321,19 @@ class ServiceDetailsPage extends StatelessWidget {
     );
   }
 
-  // ---------- Availability card ----------
+  // ---------- Bottom card: Availability & Location ----------
   Widget _availabilityCard() {
+    // Prefer: locationState if available, else fall back to location
+    final String mainLocation = service.locationState.isNotEmpty
+        ? service.locationState
+        : service.location;
+
+    final String details =
+        service.locationDetails.isNotEmpty ? service.locationDetails : '-';
+
+    final String flexibility =
+        service.flexibleNotes.isNotEmpty ? service.flexibleNotes : '-';
+
     return _roundedCard(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -280,15 +352,15 @@ class ServiceDetailsPage extends StatelessWidget {
               children: [
                 Expanded(
                   child: _infoPill(
-                    label: 'Available Timing',
+                    label: 'Available Date & Time',
                     value: service.availableTiming,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _infoPill(
-                    label: 'Service Location',
-                    value: service.location,
+                    label: 'Location',
+                    value: mainLocation,
                   ),
                 ),
               ],
@@ -298,16 +370,15 @@ class ServiceDetailsPage extends StatelessWidget {
               children: [
                 Expanded(
                   child: _infoPill(
-                    label: 'Time Limit',
-                    value: 'Within ${service.timeLimitDays} days',
+                    label: 'Flexibility',
+                    value: flexibility,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: _infoPill(
-                    label: 'Status',
-                    value: service.serviceStatus,
-                    statusChip: true,
+                    label: 'Location details',
+                    value: details,
                   ),
                 ),
               ],
@@ -319,7 +390,8 @@ class ServiceDetailsPage extends StatelessWidget {
   }
 
   // ---------- Bottom button ----------
-  Widget _bottomRequestButton(BuildContext context) {
+  Widget _bottomActionButton(
+      BuildContext context, String label, bool isOfferListing) {
     return Container(
       color: const Color(0xFFFFF4D1),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
@@ -327,7 +399,7 @@ class ServiceDetailsPage extends StatelessWidget {
         height: 48,
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: () => _showConfirmDialog(context),
+          onPressed: () => _showConfirmDialog(context, isOfferListing),
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFFF39C50),
             foregroundColor: Colors.white,
@@ -335,9 +407,9 @@ class ServiceDetailsPage extends StatelessWidget {
               borderRadius: BorderRadius.circular(24),
             ),
           ),
-          child: const Text(
-            'Request this Service',
-            style: TextStyle(fontWeight: FontWeight.w600),
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600),
           ),
         ),
       ),
@@ -345,7 +417,15 @@ class ServiceDetailsPage extends StatelessWidget {
   }
 
   // ---------- Dialogs (with Firestore write) ----------
-  void _showConfirmDialog(BuildContext context) {
+  void _showConfirmDialog(BuildContext context, bool isOfferListing) {
+    final String titleText = isOfferListing
+        ? 'Confirm Requesting this Service?'
+        : 'Confirm Offering this Service?';
+
+    final String subtitleText = isOfferListing
+        ? 'You will send a request to the provider.'
+        : 'You will offer to provide this service.';
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -364,19 +444,20 @@ class ServiceDetailsPage extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
-                    'Confirm Requesting this Service?',
+                  Text(
+                    titleText,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'You will send a request to the provider.',
-                    style: TextStyle(color: Colors.white70),
+                  Text(
+                    subtitleText,
+                    style: const TextStyle(color: Colors.white70),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 18),
                   Row(
@@ -387,10 +468,14 @@ class ServiceDetailsPage extends StatelessWidget {
                           height: 36,
                           child: ElevatedButton(
                             onPressed: () async {
-                              final user = FirebaseAuth.instance.currentUser; // 👈 ADD THIS
+                              final user =
+                                  FirebaseAuth.instance.currentUser;
                               if (user == null) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text("Please log in to request this service.")),
+                                  const SnackBar(
+                                    content: Text(
+                                        'Please log in to continue.'),
+                                  ),
                                 );
                                 return;
                               }
@@ -402,12 +487,13 @@ class ServiceDetailsPage extends StatelessWidget {
                                   'serviceTitle': service.serviceTitle,
                                   'providerId': service.providerId,
                                   'providerName': service.providerName,
-                                  'requesterId': user?.uid ?? '',
-                                  'requesterName': user?.displayName ?? 'Unknown User',
-                                  
+                                  'requesterId': user.uid,
+                                  'requesterName':
+                                      user.displayName ?? 'Unknown User',
                                   'status': 'pending',
                                   'createdAt':
                                       FieldValue.serverTimestamp(),
+                                  // you can later add a field like "requestType": "request" / "offer"
                                 });
                                 Navigator.of(context).pop(); // close confirm
                                 _showSuccessDialog(context);
@@ -415,8 +501,8 @@ class ServiceDetailsPage extends StatelessWidget {
                                 Navigator.of(context).pop();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content:
-                                        Text('Failed to send request: $e'),
+                                    content: Text(
+                                        'Failed to send request: $e'),
                                   ),
                                 );
                               }
@@ -520,10 +606,12 @@ class ServiceDetailsPage extends StatelessWidget {
   }
 
   // ---------- Helpers ----------
+
+  // small soft grey card to match new design
   Widget _roundedCard({required Widget child}) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color(0xFFF6F6F6), // slightly grey
         borderRadius: BorderRadius.circular(18),
         boxShadow: const [
           BoxShadow(
@@ -560,7 +648,6 @@ class ServiceDetailsPage extends StatelessWidget {
   Widget _infoPill({
     required String label,
     required String value,
-    bool statusChip = false,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -580,29 +667,20 @@ class ServiceDetailsPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          if (statusChip)
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: const Color(0xFFBFE8C9),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            )
-          else
-            Text(
-              value,
-              style: const TextStyle(fontSize: 12),
-            ),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 12),
+          ),
         ],
       ),
     );
+  }
+
+  /// format 2.0 → "2", 1.5 → "1.5"
+  static String _formatNumber(double value) {
+    if (value == value.roundToDouble()) {
+      return value.toInt().toString();
+    }
+    return value.toStringAsFixed(1);
   }
 }

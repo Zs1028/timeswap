@@ -14,14 +14,14 @@ class _AddRequestPageState extends State<AddRequestPage> {
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _dateController = TextEditingController();       // e.g. 27/7/2025
-  final _fromTimeController = TextEditingController();   // e.g. 4:00 PM
-  final _toTimeController = TextEditingController();     // e.g. 6:00 PM
+  final _dateController = TextEditingController(); // e.g. 27/7/2025
+  final _fromTimeController = TextEditingController(); // e.g. 4:00 PM
+  final _toTimeController = TextEditingController(); // e.g. 6:00 PM
 
-  // NEW: optional flexible timing note
+  // optional flexible timing note
   final _flexibleNotesController = TextEditingController();
 
-  // NEW: location details (optional)
+  // location details (optional)
   final _locationDetailsController = TextEditingController();
 
   // Dropdown selections
@@ -31,7 +31,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
 
   bool _isSubmitting = false;
 
-  // Category options (same style as Add Offering)
+  // Category options
   final List<String> _categories = const [
     'Home Services',
     'Education & Tutoring',
@@ -95,7 +95,29 @@ class _AddRequestPageState extends State<AddRequestPage> {
     }
 
     final String currentUserId = user.uid;
-    final String currentUserName = user.email ?? 'TimeSwap User';
+
+    // ⭐ NEW: try to use profile name from `users` collection
+    String currentUserName;
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserId)
+          .get();
+      final data = userDoc.data();
+      final profileName = (data?['name'] as String?)?.trim();
+
+      if (profileName != null && profileName.isNotEmpty) {
+        currentUserName = profileName;
+      } else if ((user.displayName ?? '').trim().isNotEmpty) {
+        currentUserName = user.displayName!.trim();
+      } else {
+        currentUserName = user.email ?? 'TimeSwap User';
+      }
+    } catch (_) {
+      // if anything fails, fall back to email
+      currentUserName = user.email ?? 'TimeSwap User';
+    }
 
     final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
@@ -123,9 +145,8 @@ class _AddRequestPageState extends State<AddRequestPage> {
     final double creditsRequired = _selectedCredits!;
 
     // For main "location" field, combine state + details if provided
-    final String location = locationDetails.isEmpty
-        ? state
-        : '$state - $locationDetails';
+    final String location =
+        locationDetails.isEmpty ? state : '$state - $locationDetails';
 
     final availableTiming = '$date, $from - $to';
 
@@ -141,13 +162,13 @@ class _AddRequestPageState extends State<AddRequestPage> {
         'locationDetails': locationDetails,
         'availableTiming': availableTiming,
         'flexibleNotes': flexibleNotes,
-        // ❌ no more timeLimitDays
-        'creditsPerHour': creditsRequired, // 🔥 double
+        // no more timeLimitDays
+        'creditsPerHour': creditsRequired, // double
         'serviceStatus': 'open',
 
         // The person who needs help
         'requesterId': currentUserId,
-        // For "need help", requester is also the owner/provider of this listing
+        // For "need help", requester also owns the listing
         'providerId': currentUserId,
         'providerName': currentUserName,
 
@@ -217,7 +238,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Date & Time (same layout as Add Offering)
+                      // Date & Time
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -258,7 +279,8 @@ class _AddRequestPageState extends State<AddRequestPage> {
                       _buildTextField(
                         label: 'Flexible timing (optional)',
                         controller: _flexibleNotesController,
-                        hint: 'e.g. Weeknights after 7pm, can discuss timing',
+                        hint:
+                            'e.g. Weeknights after 7pm, can discuss timing',
                         maxLines: 2,
                       ),
 
@@ -316,40 +338,37 @@ class _AddRequestPageState extends State<AddRequestPage> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 0),
-                        child: DropdownButtonFormField<double>(
-                          value: _selectedCredits,
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.white,
-                            isDense: true,
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 10),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  const BorderSide(color: Colors.black12),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide:
-                                  const BorderSide(color: Colors.black12),
-                            ),
+                      DropdownButtonFormField<double>(
+                        value: _selectedCredits,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.white,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Colors.black12),
                           ),
-                          hint: const Text('Select time credits required'),
-                          items: _creditOptions
-                              .map(
-                                (opt) => DropdownMenuItem<double>(
-                                  value: opt['value'] as double,
-                                  child: Text(opt['label'] as String),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (val) {
-                            setState(() => _selectedCredits = val);
-                          },
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide:
+                                const BorderSide(color: Colors.black12),
+                          ),
                         ),
+                        hint: const Text('Select time credits required'),
+                        items: _creditOptions
+                            .map(
+                              (opt) => DropdownMenuItem<double>(
+                                value: opt['value'] as double,
+                                child: Text(opt['label'] as String),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          setState(() => _selectedCredits = val);
+                        },
                       ),
 
                       const SizedBox(height: 80), // space above button
