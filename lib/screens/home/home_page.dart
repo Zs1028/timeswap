@@ -60,7 +60,10 @@ class HomePage extends StatelessWidget {
 
             final data = snapshot.data?.data() ?? {};
             final userName = (data['name'] as String?) ?? 'Friend';
-            final credits = (data['timeCredits'] ?? 0) as int;
+
+            // 🔥 timeCredits can be int or double in Firestore → read as num → double
+            final double credits =
+                (data['timeCredits'] as num?)?.toDouble() ?? 0.0;
 
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
@@ -95,6 +98,15 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+}
+
+/* -------------------- SMALL HELPER FOR NUM FORMATTING -------------------- */
+
+String _formatNum(num value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString(); // 10.0 -> "10"
+  }
+  return value.toString(); // 1.5 -> "1.5"
 }
 
 /* -------------------- HEADER -------------------- */
@@ -143,7 +155,7 @@ class _Header extends StatelessWidget {
 /* -------------------- CURRENT BALANCE -------------------- */
 
 class _CurrentBalanceCard extends StatelessWidget {
-  final int credits;
+  final double credits; // 🔥 changed from int → double
   const _CurrentBalanceCard({required this.credits});
 
   @override
@@ -186,7 +198,7 @@ class _CurrentBalanceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'You have $credits credits available !',
+                    'You have ${_formatNum(credits)} credits available !',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.black87,
                           fontWeight: FontWeight.w500,
@@ -208,7 +220,8 @@ class _ActivitySummaryCard extends StatelessWidget {
   final String uid;
   const _ActivitySummaryCard({required this.uid});
 
-  Future<Map<String, int>> _loadSummary() async {
+  // 🔥 use num so we can store both int & double safely
+  Future<Map<String, num>> _loadSummary() async {
     final fs = FirebaseFirestore.instance;
 
     // 1) Sessions in progress (you as helper OR helpee)
@@ -224,30 +237,27 @@ class _ActivitySummaryCard extends StatelessWidget {
         .where('serviceStatus', isEqualTo: 'inprogress')
         .get();
 
-    final sessionsInProgress =
+    final int sessionsInProgress =
         inprogressAsHelper.size + inprogressAsHelpee.size;
 
     // 2) Requests need your response
-    //  - as provider (you need to accept/decline)
     final pendingAppsAsProvider = await fs
         .collection('serviceRequests')
         .where('providerId', isEqualTo: uid)
         .where('status', isEqualTo: 'pending')
         .get();
 
-    //  - as requester (your own posted services that are still open)
     final openServicesAsRequester = await fs
         .collection('services')
         .where('requesterId', isEqualTo: uid)
         .where('serviceStatus', isEqualTo: 'open')
         .get();
 
-    final requestsNeedResponse =
+    final int requestsNeedResponse =
         pendingAppsAsProvider.size + openServicesAsRequester.size;
 
-    // 3) Hours earned this week (as HELPER)
+    // 3) Hours earned this week (as HELPER) = credits sum (can be 1.5, 2.5, etc.)
     final now = DateTime.now();
-    // start of this week (Mon 00:00)
     final startOfWeek = DateTime(now.year, now.month, now.day)
         .subtract(Duration(days: now.weekday - 1));
 
@@ -261,10 +271,12 @@ class _ActivitySummaryCard extends StatelessWidget {
         )
         .get();
 
-    int hoursEarnedThisWeek = 0;
+    double hoursEarnedThisWeek = 0.0;
     for (final doc in earnedSnap.docs) {
       final data = doc.data();
-      hoursEarnedThisWeek += (data['credits'] ?? 0) as int;
+      final double credits =
+          (data['credits'] as num?)?.toDouble() ?? 0.0;
+      hoursEarnedThisWeek += credits;
     }
 
     return {
@@ -276,7 +288,7 @@ class _ActivitySummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<Map<String, int>>(
+    return FutureBuilder<Map<String, num>>(
       future: _loadSummary(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -306,7 +318,7 @@ class _ActivitySummaryCard extends StatelessWidget {
             {
               'sessionsInProgress': 0,
               'requestsNeedResponse': 0,
-              'hoursEarnedThisWeek': 0,
+              'hoursEarnedThisWeek': 0.0,
             };
 
         return _ShadowCard(
@@ -336,7 +348,7 @@ class _ActivitySummaryCard extends StatelessWidget {
               _summaryRow(
                 context,
                 label: 'Hours earned this week',
-                value: data['hoursEarnedThisWeek'] ?? 0,
+                value: data['hoursEarnedThisWeek'] ?? 0.0,
               ),
             ],
           ),
@@ -346,7 +358,7 @@ class _ActivitySummaryCard extends StatelessWidget {
   }
 
   Widget _summaryRow(BuildContext context,
-      {required String label, required int value}) {
+      {required String label, required num value}) {
     return Row(
       children: [
         Expanded(
@@ -356,7 +368,7 @@ class _ActivitySummaryCard extends StatelessWidget {
           ),
         ),
         Text(
-          '$value',
+          _formatNum(value),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -406,14 +418,15 @@ class _RecentActivityCard extends StatelessWidget {
     // Add items where you earned credits
     for (final doc in asHelperSnap.docs) {
       final data = doc.data();
-      final credits = data['credits'] ?? 0;
+      final num credits = (data['credits'] as num?) ?? 0;
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
       final other = data['helpeeId'] ?? '';
 
       items.add(
         _RecentActivityItem(
-          text: 'You helped $other and earned $credits credits.',
+          text:
+              'You helped $other and earned ${_formatNum(credits)} credits.',
           time: createdAt,
         ),
       );
@@ -422,14 +435,15 @@ class _RecentActivityCard extends StatelessWidget {
     // Add items where you spent credits
     for (final doc in asHelpeeSnap.docs) {
       final data = doc.data();
-      final credits = data['credits'] ?? 0;
+      final num credits = (data['credits'] as num?) ?? 0;
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
       final other = data['helperId'] ?? '';
 
       items.add(
         _RecentActivityItem(
-          text: '$other helped you. You spent $credits credits.',
+          text:
+              '$other helped you. You spent ${_formatNum(credits)} credits.',
           time: createdAt,
         ),
       );
@@ -549,7 +563,6 @@ class _RecentActivityCard extends StatelessWidget {
   }
 }
 
-
 String _timeAgo(DateTime time) {
   final diff = DateTime.now().difference(time);
   if (diff.inMinutes < 1) return 'Just now';
@@ -623,13 +636,11 @@ class _BottomNav extends StatelessWidget {
             Navigator.pushNamed(context, AppRoutes.yourRequests);
             break;
           case 3:
-      // Messages – you can route later, for now just snackbar
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Messages coming soon')),
-      );
-        break;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Messages coming soon')),
+            );
+            break;
           case 4:
-      // Profile tab
             Navigator.pushNamed(context, AppRoutes.profile);
             break;
         }

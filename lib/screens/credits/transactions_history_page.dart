@@ -14,7 +14,7 @@ enum _HistoryFilter { all, earned, spent }
 
 class _HistoryTxn {
   final String description;
-  final int credits;
+  final double credits;
   final bool isEarned;
   final DateTime createdAt;
 
@@ -24,6 +24,11 @@ class _HistoryTxn {
     required this.isEarned,
     required this.createdAt,
   });
+}
+
+String _formatCredits(double c) {
+  if (c == c.roundToDouble()) return c.toInt().toString();
+  return c.toString();
 }
 
 class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
@@ -60,7 +65,8 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
 
     for (final doc in helperSnap.docs) {
       final data = doc.data();
-      final credits = (data['credits'] ?? 0) as int;
+      final double credits =
+          (data['credits'] as num?)?.toDouble() ?? 0.0;
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
@@ -74,7 +80,8 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
 
     for (final doc in helpeeSnap.docs) {
       final data = doc.data();
-      final credits = (data['credits'] ?? 0) as int;
+      final double credits =
+          (data['credits'] as num?)?.toDouble() ?? 0.0;
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
@@ -196,7 +203,7 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${t.isEarned ? '+' : '-'} ${t.credits} credits',
+                      '${t.isEarned ? '+' : '-'} ${_formatCredits(t.credits)} credits',
                       style: TextStyle(
                         color: t.isEarned
                             ? Colors.green.shade700

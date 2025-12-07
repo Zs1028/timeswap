@@ -35,11 +35,18 @@ class TimeCreditPage extends StatelessWidget {
   }
 }
 
+/* ---------- SIMPLE FORMATTER ---------- */
+
+String _formatCredits(double c) {
+  if (c == c.roundToDouble()) return c.toInt().toString(); // 10.0 -> "10"
+  return c.toString(); // 1.5 -> "1.5"
+}
+
 /* ---------- DATA MODELS ---------- */
 
 class _TxnItem {
   final String description;
-  final int credits;
+  final double credits;
   final bool isEarned;
   final DateTime createdAt;
 
@@ -52,9 +59,9 @@ class _TxnItem {
 }
 
 class _TimeCreditData {
-  final int balance;
-  final int totalEarned;
-  final int totalSpent;
+  final double balance;
+  final double totalEarned;
+  final double totalSpent;
   final List<_TxnItem> recent;
 
   _TimeCreditData({
@@ -74,9 +81,10 @@ class _TimeCreditBody extends StatelessWidget {
   Future<_TimeCreditData> _loadData() async {
     final fs = FirebaseFirestore.instance;
 
-    // user balance
+    // user balance (can be int or double in Firestore)
     final userSnap = await fs.collection('users').doc(uid).get();
-    final balance = (userSnap.data()?['timeCredits'] ?? 0) as int;
+    final double balance =
+        (userSnap.data()?['timeCredits'] as num?)?.toDouble() ?? 0.0;
 
     // transactions – as helper (earned)
     final helperSnap = await fs
@@ -94,13 +102,14 @@ class _TimeCreditBody extends StatelessWidget {
         .orderBy('createdAt', descending: true)
         .get();
 
-    int totalEarned = 0;
-    int totalSpent = 0;
+    double totalEarned = 0.0;
+    double totalSpent = 0.0;
     final List<_TxnItem> all = [];
 
     for (final doc in helperSnap.docs) {
       final data = doc.data();
-      final credits = (data['credits'] ?? 0) as int;
+      final double credits =
+          (data['credits'] as num?)?.toDouble() ?? 0.0;
       totalEarned += credits;
 
       final createdAt =
@@ -116,7 +125,8 @@ class _TimeCreditBody extends StatelessWidget {
 
     for (final doc in helpeeSnap.docs) {
       final data = doc.data();
-      final credits = (data['credits'] ?? 0) as int;
+      final double credits =
+          (data['credits'] as num?)?.toDouble() ?? 0.0;
       totalSpent += credits;
 
       final createdAt =
@@ -165,9 +175,9 @@ class _TimeCreditBody extends StatelessWidget {
 
         final data = snapshot.data ??
             _TimeCreditData(
-              balance: 0,
-              totalEarned: 0,
-              totalSpent: 0,
+              balance: 0.0,
+              totalEarned: 0.0,
+              totalSpent: 0.0,
               recent: const [],
             );
 
@@ -193,9 +203,9 @@ class _TimeCreditBody extends StatelessWidget {
 /* ---------- TOP CARD (TOTAL BALANCE) ---------- */
 
 class _TotalBalanceCard extends StatelessWidget {
-  final int balance;
-  final int earned;
-  final int spent;
+  final double balance;
+  final double earned;
+  final double spent;
 
   const _TotalBalanceCard({
     required this.balance,
@@ -238,7 +248,7 @@ class _TotalBalanceCard extends StatelessWidget {
               const Icon(Icons.hourglass_empty, size: 32),
               const SizedBox(width: 8),
               Text(
-                '$balance',
+                _formatCredits(balance),
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -274,7 +284,7 @@ class _TotalBalanceCard extends StatelessWidget {
   Widget _miniStat(
     BuildContext context, {
     required String label,
-    required int value,
+    required double value,
     required Color bg,
     required IconData icon,
   }) {
@@ -301,7 +311,7 @@ class _TotalBalanceCard extends StatelessWidget {
               Icon(icon, size: 18),
               const SizedBox(width: 4),
               Text(
-                '$value',
+                _formatCredits(value),
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -384,7 +394,7 @@ class _TransactionPreviewCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '${t.isEarned ? '+' : '-'} ${t.credits} credits',
+                          '${t.isEarned ? '+' : '-'} ${_formatCredits(t.credits)} credits',
                           style: TextStyle(
                             color: t.isEarned
                                 ? Colors.green.shade700

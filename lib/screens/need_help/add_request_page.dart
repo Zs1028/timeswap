@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-
 class AddRequestPage extends StatefulWidget {
   const AddRequestPage({super.key});
 
@@ -11,9 +10,6 @@ class AddRequestPage extends StatefulWidget {
 }
 
 class _AddRequestPageState extends State<AddRequestPage> {
-  // TEMP user info – later replace with FirebaseAuth + users collection
-
-
   final _formKey = GlobalKey<FormState>();
 
   final _titleController = TextEditingController();
@@ -21,12 +17,59 @@ class _AddRequestPageState extends State<AddRequestPage> {
   final _dateController = TextEditingController();       // e.g. 27/7/2025
   final _fromTimeController = TextEditingController();   // e.g. 4:00 PM
   final _toTimeController = TextEditingController();     // e.g. 6:00 PM
-  final _categoryController = TextEditingController();
-  final _locationController = TextEditingController();
-  final _timeLimitController = TextEditingController();  // days
-  final _creditsController = TextEditingController();    // credits per hour
+
+  // NEW: optional flexible timing note
+  final _flexibleNotesController = TextEditingController();
+
+  // NEW: location details (optional)
+  final _locationDetailsController = TextEditingController();
+
+  // Dropdown selections
+  String? _selectedCategory;
+  String? _selectedState;
+  double? _selectedCredits;
 
   bool _isSubmitting = false;
+
+  // Category options (same style as Add Offering)
+  final List<String> _categories = const [
+    'Home Services',
+    'Education & Tutoring',
+    'Transportation',
+    'Care & Support',
+    'Food & Cooking',
+    'Handyman & Repairs',
+    'Technology & IT',
+    'Creative & Arts',
+    'Other',
+  ];
+
+  // Malaysia states
+  final List<String> _states = const [
+    'Johor',
+    'Kedah',
+    'Kelantan',
+    'Melaka',
+    'Negeri Sembilan',
+    'Pahang',
+    'Perak',
+    'Perlis',
+    'Pulau Pinang',
+    'Sabah',
+    'Sarawak',
+    'Selangor',
+    'W.P. Kuala Lumpur',
+  ];
+
+  // Time credits required options
+  final List<Map<String, dynamic>> _creditOptions = const [
+    {'label': '1 hour (1 credit)', 'value': 1.0},
+    {'label': '1.5 hours (1.5 credits)', 'value': 1.5},
+    {'label': '2 hours (2 credits)', 'value': 2.0},
+    {'label': '3 hours (3 credits)', 'value': 3.0},
+    {'label': '4 hours (4 credits)', 'value': 4.0},
+    {'label': '5+ hours (5+ credits)', 'value': 5.0},
+  ];
 
   @override
   void dispose() {
@@ -35,108 +78,101 @@ class _AddRequestPageState extends State<AddRequestPage> {
     _dateController.dispose();
     _fromTimeController.dispose();
     _toTimeController.dispose();
-    _categoryController.dispose();
-    _locationController.dispose();
-    _timeLimitController.dispose();
-    _creditsController.dispose();
+    _flexibleNotesController.dispose();
+    _locationDetailsController.dispose();
     super.dispose();
   }
 
-Future<void> _submit() async {
-  // 1️⃣ Get current Firebase user
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please log in first.')),
-    );
-    return;
-  }
+  // --------------- SUBMIT LOGIC ---------------
 
-  final String currentUserId = user.uid;
-  final String currentUserName = user.email ?? 'TimeSwap User';
+  Future<void> _submit() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in first.')),
+      );
+      return;
+    }
 
-  // 2️⃣ Read form values
-  final title = _titleController.text.trim();
-  final description = _descriptionController.text.trim();
-  final date = _dateController.text.trim();
-  final from = _fromTimeController.text.trim();
-  final to = _toTimeController.text.trim();
-  final category = _categoryController.text.trim();
-  final location = _locationController.text.trim();
-  final timeLimitStr = _timeLimitController.text.trim();
-  final creditsStr = _creditsController.text.trim();
+    final String currentUserId = user.uid;
+    final String currentUserName = user.email ?? 'TimeSwap User';
 
-  if (title.isEmpty ||
-      description.isEmpty ||
-      date.isEmpty ||
-      from.isEmpty ||
-      to.isEmpty ||
-      category.isEmpty ||
-      location.isEmpty ||
-      timeLimitStr.isEmpty ||
-      creditsStr.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please fill in all required fields.')),
-    );
-    return;
-  }
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+    final date = _dateController.text.trim();
+    final from = _fromTimeController.text.trim();
+    final to = _toTimeController.text.trim();
+    final flexibleNotes = _flexibleNotesController.text.trim();
+    final locationDetails = _locationDetailsController.text.trim();
 
-  final timeLimitDays = int.tryParse(timeLimitStr);
-  final creditsPerHour = int.tryParse(creditsStr);
+    if (title.isEmpty ||
+        description.isEmpty ||
+        date.isEmpty ||
+        from.isEmpty ||
+        to.isEmpty ||
+        _selectedCategory == null ||
+        _selectedState == null ||
+        _selectedCredits == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required fields.')),
+      );
+      return;
+    }
 
-  if (timeLimitDays == null || creditsPerHour == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Time limit and time credits must be valid numbers.'),
-      ),
-    );
-    return;
-  }
+    final String state = _selectedState!;
+    final double creditsRequired = _selectedCredits!;
 
-  final availableTiming = '$date, $from - $to';
+    // For main "location" field, combine state + details if provided
+    final String location = locationDetails.isEmpty
+        ? state
+        : '$state - $locationDetails';
 
-  setState(() {
-    _isSubmitting = true;
-  });
+    final availableTiming = '$date, $from - $to';
 
-  try {
-    await FirebaseFirestore.instance.collection('services').add({
-      'serviceTitle': title,
-      'serviceDescription': description,
-      'category': category,
-      'location': location,
-      'availableTiming': availableTiming,
-      'timeLimitDays': timeLimitDays,
-      'creditsPerHour': creditsPerHour,
-      'serviceStatus': 'open',       // new requests start as open
+    setState(() => _isSubmitting = true);
 
-      // 🔥 link to real logged-in user
-      'requesterId': currentUserId,  // the person who needs help
-      'providerId': currentUserId,   // for "Need Help", requester = owner
-      'providerName': currentUserName,
+    try {
+      await FirebaseFirestore.instance.collection('services').add({
+        'serviceTitle': title,
+        'serviceDescription': description,
+        'category': _selectedCategory,
+        'location': location,
+        'locationState': state,
+        'locationDetails': locationDetails,
+        'availableTiming': availableTiming,
+        'flexibleNotes': flexibleNotes,
+        // ❌ no more timeLimitDays
+        'creditsPerHour': creditsRequired, // 🔥 double
+        'serviceStatus': 'open',
 
-      'serviceType': 'need',
-      'createdDate': FieldValue.serverTimestamp(),
-    });
+        // The person who needs help
+        'requesterId': currentUserId,
+        // For "need help", requester is also the owner/provider of this listing
+        'providerId': currentUserId,
+        'providerName': currentUserName,
 
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Request created successfully.')),
-    );
-    Navigator.of(context).pop(); // go back to previous page
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to create request: $e')),
-    );
-  } finally {
-    if (mounted) {
-      setState(() {
-        _isSubmitting = false;
+        'serviceType': 'need',
+        'createdDate': FieldValue.serverTimestamp(),
       });
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request created successfully.')),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to create request: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
-}
+
+  // --------------- UI ---------------
 
   @override
   Widget build(BuildContext context) {
@@ -180,6 +216,8 @@ Future<void> _submit() async {
                         maxLines: 3,
                       ),
                       const SizedBox(height: 12),
+
+                      // Date & Time (same layout as Add Offering)
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -216,32 +254,104 @@ Future<void> _submit() async {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       _buildTextField(
+                        label: 'Flexible timing (optional)',
+                        controller: _flexibleNotesController,
+                        hint: 'e.g. Weeknights after 7pm, can discuss timing',
+                        maxLines: 2,
+                      ),
+
+                      const SizedBox(height: 12),
+                      // Category dropdown
+                      _buildDropdown<String>(
                         label: 'Category *',
-                        controller: _categoryController,
-                        hint: 'Home Services',
+                        value: _selectedCategory,
+                        items: _categories,
+                        hint: 'Select a category',
+                        onChanged: (val) {
+                          setState(() => _selectedCategory = val);
+                        },
                       ),
+
                       const SizedBox(height: 12),
-                      _buildTextField(
-                        label: 'Location *',
-                        controller: _locationController,
-                        hint: 'Setapak',
+                      // Location state + details
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Location *',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black.withOpacity(0.8),
+                          ),
+                        ),
                       ),
+                      const SizedBox(height: 4),
+                      _buildDropdown<String>(
+                        label: 'State',
+                        value: _selectedState,
+                        items: _states,
+                        hint: 'Select state',
+                        onChanged: (val) {
+                          setState(() => _selectedState = val);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      _buildTextField(
+                        label: 'Location details (optional)',
+                        controller: _locationDetailsController,
+                        hint: 'e.g. Sunway City, hostel block B',
+                      ),
+
                       const SizedBox(height: 12),
-                      _buildTextField(
-                        label: 'Duration of Time Limit (days) *',
-                        controller: _timeLimitController,
-                        hint: '2',
-                        keyboardType: TextInputType.number,
+                      // Time credits required dropdown
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Time Credits Required *',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black.withOpacity(0.8),
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        label: 'Time Credits Offered (per hour) *',
-                        controller: _creditsController,
-                        hint: '4',
-                        keyboardType: TextInputType.number,
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 0),
+                        child: DropdownButtonFormField<double>(
+                          value: _selectedCredits,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Colors.black12),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide:
+                                  const BorderSide(color: Colors.black12),
+                            ),
+                          ),
+                          hint: const Text('Select time credits required'),
+                          items: _creditOptions
+                              .map(
+                                (opt) => DropdownMenuItem<double>(
+                                  value: opt['value'] as double,
+                                  child: Text(opt['label'] as String),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (val) {
+                            setState(() => _selectedCredits = val);
+                          },
+                        ),
                       ),
+
                       const SizedBox(height: 80), // space above button
                     ],
                   ),
@@ -250,8 +360,7 @@ Future<void> _submit() async {
             ),
             Container(
               color: const Color(0xFFFFF4D1),
-              padding:
-                  const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -286,6 +395,8 @@ Future<void> _submit() async {
       ),
     );
   }
+
+  // --------------- HELPERS ---------------
 
   Widget _buildTextField({
     required String label,
@@ -325,6 +436,56 @@ Future<void> _submit() async {
               borderSide: const BorderSide(color: Colors.black12),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required String label,
+    required T? value,
+    required List<T> items,
+    required String hint,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.black.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 4),
+        DropdownButtonFormField<T>(
+          value: value,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            isDense: true,
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.black12),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Colors.black12),
+            ),
+          ),
+          hint: Text(hint),
+          items: items
+              .map(
+                (it) => DropdownMenuItem<T>(
+                  value: it,
+                  child: Text(it.toString()),
+                ),
+              )
+              .toList(),
+          onChanged: onChanged,
         ),
       ],
     );
