@@ -618,7 +618,7 @@ class _BottomNav extends StatelessWidget {
         BottomNavigationBarItem(
             icon: Icon(Icons.assignment_outlined), label: 'Your Request'),
         BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline), label: 'Messages'),
+            icon: Icon(Icons.inbox_outlined), label: 'My Application'),
         BottomNavigationBarItem(
             icon: Icon(Icons.person_outline), label: 'Profile'),
       ],
@@ -636,9 +636,7 @@ class _BottomNav extends StatelessWidget {
             Navigator.pushNamed(context, AppRoutes.yourRequests);
             break;
           case 3:
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Messages coming soon')),
-            );
+              Navigator.pushNamed(context, AppRoutes.myApplications);
             break;
           case 4:
             Navigator.pushNamed(context, AppRoutes.profile);
