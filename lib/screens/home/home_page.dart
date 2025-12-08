@@ -220,43 +220,60 @@ class _ActivitySummaryCard extends StatelessWidget {
   final String uid;
   const _ActivitySummaryCard({required this.uid});
 
-  // 🔥 use num so we can store both int & double safely
+  // use num so we can store both int & double safely
   Future<Map<String, num>> _loadSummary() async {
     final fs = FirebaseFirestore.instance;
 
-    // 1) Sessions in progress (you as helper OR helpee)
-    final inprogressAsHelper = await fs
-        .collection('services')
-        .where('helperId', isEqualTo: uid)
-        .where('serviceStatus', isEqualTo: 'inprogress')
-        .get();
-
-    final inprogressAsHelpee = await fs
-        .collection('services')
-        .where('helpeeId', isEqualTo: uid)
-        .where('serviceStatus', isEqualTo: 'inprogress')
-        .get();
-
-    final int sessionsInProgress =
-        inprogressAsHelper.size + inprogressAsHelpee.size;
-
-    // 2) Requests need your response
-    final pendingAppsAsProvider = await fs
-        .collection('serviceRequests')
-        .where('providerId', isEqualTo: uid)
-        .where('status', isEqualTo: 'pending')
-        .get();
-
-    final openServicesAsRequester = await fs
+    // 1) Your requests in progress  (services you created, type = need)
+    final yourRequestsInProgressSnap = await fs
         .collection('services')
         .where('requesterId', isEqualTo: uid)
+        .where('serviceType', isEqualTo: 'need')
+        .where('serviceStatus', isEqualTo: 'inprogress')
+        .get();
+
+    // 2) Your offerings in progress  (services you created, type = offer)
+    final yourOfferingsInProgressSnap = await fs
+        .collection('services')
+        .where('requesterId', isEqualTo: uid)
+        .where('serviceType', isEqualTo: 'offer')
+        .where('serviceStatus', isEqualTo: 'inprogress')
+        .get();
+
+    // 3) Your applications in progress
+    //    (you applied to others' services; we count accepted + inprogress)
+    final appsAcceptedSnap = await fs
+        .collection('serviceRequests')
+        .where('requesterId', isEqualTo: uid)
+        .where('status', isEqualTo: 'accepted')
+        .get();
+
+    final appsInProgressSnap = await fs
+        .collection('serviceRequests')
+        .where('requesterId', isEqualTo: uid)
+        .where('status', isEqualTo: 'inprogress')
+        .get();
+
+    final int applicationsInProgress =
+        appsAcceptedSnap.size + appsInProgressSnap.size;
+
+    // 4) Service requests need your response (your "need help" listings that are still open)
+    final requestsNeedResponseSnap = await fs
+        .collection('services')
+        .where('requesterId', isEqualTo: uid)
+        .where('serviceType', isEqualTo: 'need')
         .where('serviceStatus', isEqualTo: 'open')
         .get();
 
-    final int requestsNeedResponse =
-        pendingAppsAsProvider.size + openServicesAsRequester.size;
+    // 5) Service offerings need your response (your "offer help" listings still open)
+    final offeringsNeedResponseSnap = await fs
+        .collection('services')
+        .where('requesterId', isEqualTo: uid)
+        .where('serviceType', isEqualTo: 'offer')
+        .where('serviceStatus', isEqualTo: 'open')
+        .get();
 
-    // 3) Hours earned this week (as HELPER) = credits sum (can be 1.5, 2.5, etc.)
+    // 6) Hours earned this week (as helper)
     final now = DateTime.now();
     final startOfWeek = DateTime(now.year, now.month, now.day)
         .subtract(Duration(days: now.weekday - 1));
@@ -280,8 +297,11 @@ class _ActivitySummaryCard extends StatelessWidget {
     }
 
     return {
-      'sessionsInProgress': sessionsInProgress,
-      'requestsNeedResponse': requestsNeedResponse,
+      'yourRequestsInProgress': yourRequestsInProgressSnap.size,
+      'yourOfferingsInProgress': yourOfferingsInProgressSnap.size,
+      'applicationsInProgress': applicationsInProgress,
+      'requestsNeedResponse': requestsNeedResponseSnap.size,
+      'offeringsNeedResponse': offeringsNeedResponseSnap.size,
       'hoursEarnedThisWeek': hoursEarnedThisWeek,
     };
   }
@@ -292,7 +312,6 @@ class _ActivitySummaryCard extends StatelessWidget {
       future: _loadSummary(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          // Small loader INSIDE the card
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(16),
@@ -316,8 +335,11 @@ class _ActivitySummaryCard extends StatelessWidget {
 
         final data = snapshot.data ??
             {
-              'sessionsInProgress': 0,
+              'yourRequestsInProgress': 0,
+              'yourOfferingsInProgress': 0,
+              'applicationsInProgress': 0,
               'requestsNeedResponse': 0,
+              'offeringsNeedResponse': 0,
               'hoursEarnedThisWeek': 0.0,
             };
 
@@ -333,22 +355,72 @@ class _ActivitySummaryCard extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 8),
+
+              // 1) Your request in progress
               _summaryRow(
                 context,
-                label: 'Sessions in progress',
-                value: data['sessionsInProgress'] ?? 0,
+                label: 'Your requests in progress',
+                value: data['yourRequestsInProgress'] ?? 0,
+                onTap: () {
+                  // go to "Your Request" page
+                  Navigator.pushNamed(context, AppRoutes.yourRequests);
+                  // (if you later add initial-tab support, this is the place to use it)
+                },
               ),
               const SizedBox(height: 4),
+
+              // 2) Your offerings in progress
               _summaryRow(
                 context,
-                label: 'Requests need your response',
+                label: 'Your offerings in progress',
+                value: data['yourOfferingsInProgress'] ?? 0,
+                onTap: () {
+                  Navigator.pushNamed(context, AppRoutes.yourRequests);
+                },
+              ),
+              const SizedBox(height: 4),
+
+              // 3) Your applications in progress
+              _summaryRow(
+                context,
+                label: 'Your applications in progress',
+                value: data['applicationsInProgress'] ?? 0,
+                onTap: () {
+                  Navigator.pushNamed(context, AppRoutes.myApplications);
+                },
+              ),
+              const SizedBox(height: 4),
+
+              // 4) Service requests need your response
+              _summaryRow(
+                context,
+                label: 'Service requests need your response',
                 value: data['requestsNeedResponse'] ?? 0,
+                onTap: () {
+                  Navigator.pushNamed(context, AppRoutes.yourRequests);
+                },
               ),
               const SizedBox(height: 4),
+
+              // 5) Service offerings need your response
+              _summaryRow(
+                context,
+                label: 'Service offerings need your response',
+                value: data['offeringsNeedResponse'] ?? 0,
+                onTap: () {
+                  Navigator.pushNamed(context, AppRoutes.yourRequests);
+                },
+              ),
+              const SizedBox(height: 4),
+
+              // 6) Hours earned this week
               _summaryRow(
                 context,
                 label: 'Hours earned this week',
                 value: data['hoursEarnedThisWeek'] ?? 0.0,
+                onTap: () {
+                  Navigator.pushNamed(context, AppRoutes.timeCredits);
+                },
               ),
             ],
           ),
@@ -357,30 +429,42 @@ class _ActivitySummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _summaryRow(BuildContext context,
-      {required String label, required num value}) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium,
-          ),
-        ),
-        Text(
-          _formatNum(value),
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w700,
+  Widget _summaryRow(
+    BuildContext context, {
+    required String label,
+    required num value,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
+            ),
+            Text(
+              _formatNum(value),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, size: 18),
+          ],
         ),
-        const SizedBox(width: 4),
-        const Icon(Icons.chevron_right, size: 18),
-      ],
+      ),
     );
   }
 }
 
-/* -------------------- RECENT ACTIVITY -------------------- */
+
+/* -------------------- RECENT TRANSACTIONS -------------------- */
 
 class _RecentActivityItem {
   final String text;
@@ -392,10 +476,29 @@ class _RecentActivityCard extends StatelessWidget {
   final String uid;
   const _RecentActivityCard({required this.uid});
 
+  Future<String> _getUserName(
+    FirebaseFirestore fs,
+    String userId,
+    Map<String, String> cache,
+  ) async {
+    if (userId.isEmpty) return 'someone';
+
+    if (cache.containsKey(userId)) {
+      return cache[userId]!;
+    }
+
+    final snap = await fs.collection('users').doc(userId).get();
+    final data = snap.data();
+    final name = (data?['name'] as String?) ?? 'someone';
+    cache[userId] = name;
+    return name;
+  }
+
   Future<List<_RecentActivityItem>> _loadRecentActivities() async {
     final fs = FirebaseFirestore.instance;
+    final nameCache = <String, String>{};
 
-    // Fetch transactions as helper
+    // Transactions where YOU are the helper (you earned credits)
     final asHelperSnap = await fs
         .collection('transactions')
         .where('helperId', isEqualTo: uid)
@@ -404,7 +507,7 @@ class _RecentActivityCard extends StatelessWidget {
         .limit(10)
         .get();
 
-    // Fetch transactions as helpee
+    // Transactions where YOU are the helpee (you spent credits)
     final asHelpeeSnap = await fs
         .collection('transactions')
         .where('helpeeId', isEqualTo: uid)
@@ -415,43 +518,48 @@ class _RecentActivityCard extends StatelessWidget {
 
     final items = <_RecentActivityItem>[];
 
-    // Add items where you earned credits
+    // You helped others
     for (final doc in asHelperSnap.docs) {
       final data = doc.data();
-      final num credits = (data['credits'] as num?) ?? 0;
+      final String helpeeId = data['helpeeId'] as String? ?? '';
+      final String serviceTitle =
+          data['serviceTitle'] as String? ?? 'this service';
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-      final other = data['helpeeId'] ?? '';
+
+      final helpeeName =
+          await _getUserName(fs, helpeeId, nameCache); // e.g. Kitty
 
       items.add(
         _RecentActivityItem(
-          text:
-              'You helped $other and earned ${_formatNum(credits)} credits.',
+          text: 'Helped $helpeeName with $serviceTitle',
           time: createdAt,
         ),
       );
     }
 
-    // Add items where you spent credits
+    // You received help
     for (final doc in asHelpeeSnap.docs) {
       final data = doc.data();
-      final num credits = (data['credits'] as num?) ?? 0;
+      final String helperId = data['helperId'] as String? ?? '';
+      final String serviceTitle =
+          data['serviceTitle'] as String? ?? 'this service';
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
-      final other = data['helperId'] ?? '';
+
+      final helperName =
+          await _getUserName(fs, helperId, nameCache); // e.g. Josephine
 
       items.add(
         _RecentActivityItem(
-          text:
-              '$other helped you. You spent ${_formatNum(credits)} credits.',
+          text: 'Received $serviceTitle from $helperName',
           time: createdAt,
         ),
       );
     }
 
-    // Sort newest → oldest
+    // Newest first
     items.sort((a, b) => b.time.compareTo(a.time));
-
     return items;
   }
 
@@ -473,7 +581,7 @@ class _RecentActivityCard extends StatelessWidget {
           return _ShadowCard(
             bg: const Color(0xFFF7A66B),
             child: Text(
-              'Failed to load recent activity',
+              'Failed to load recent transactions',
               style: TextStyle(
                 color: Colors.red.shade700,
                 fontWeight: FontWeight.w500,
@@ -493,7 +601,7 @@ class _RecentActivityCard extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    'Recent Activity',
+                    'Recent Transactions',
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
@@ -503,23 +611,22 @@ class _RecentActivityCard extends StatelessWidget {
                   TextButton(
                     style: TextButton.styleFrom(padding: EdgeInsets.zero),
                     onPressed: () {
-                      // later: navigate to full history page
+                      Navigator.pushNamed(context, AppRoutes.transactionHistory);
                     },
                     child: const Text('View all'),
                   ),
                 ],
               ),
-
               const SizedBox(height: 4),
 
               if (activities.isEmpty)
                 Text(
-                  'No activity yet.',
+                  'No transactions yet.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 )
               else
                 SizedBox(
-                  height: 150, // scrollable area
+                  height: 150,
                   child: ListView.builder(
                     itemCount: activities.length,
                     itemBuilder: (context, index) {
@@ -562,6 +669,7 @@ class _RecentActivityCard extends StatelessWidget {
     );
   }
 }
+
 
 String _timeAgo(DateTime time) {
   final diff = DateTime.now().difference(time);
