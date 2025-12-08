@@ -26,11 +26,6 @@ class _HistoryTxn {
   });
 }
 
-String _formatCredits(double c) {
-  if (c == c.roundToDouble()) return c.toInt().toString();
-  return c.toString();
-}
-
 class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
   late Future<List<_HistoryTxn>> _future;
   _HistoryFilter _filter = _HistoryFilter.all;
@@ -63,30 +58,52 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
 
     final List<_HistoryTxn> list = [];
 
+    // helper side (earned)
     for (final doc in helperSnap.docs) {
       final data = doc.data();
-      final double credits =
-          (data['credits'] as num?)?.toDouble() ?? 0.0;
+      final creditsRaw = data['credits'] ?? 0;
+      final credits =
+          (creditsRaw is num) ? creditsRaw.toDouble() : 0.0;
+
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
+      final helpeeName = (data['helpeeName'] as String?) ?? '';
+      final serviceTitle = (data['serviceTitle'] as String?) ?? '';
+
+      final description = (helpeeName.isNotEmpty &&
+              serviceTitle.isNotEmpty)
+          ? 'Helped $helpeeName with $serviceTitle'
+          : 'You helped someone.';
+
       list.add(_HistoryTxn(
-        description: 'You helped someone.',
+        description: description,
         credits: credits,
         isEarned: true,
         createdAt: createdAt,
       ));
     }
 
+    // helpee side (spent)
     for (final doc in helpeeSnap.docs) {
       final data = doc.data();
-      final double credits =
-          (data['credits'] as num?)?.toDouble() ?? 0.0;
+      final creditsRaw = data['credits'] ?? 0;
+      final credits =
+          (creditsRaw is num) ? creditsRaw.toDouble() : 0.0;
+
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
+      final helperName = (data['helperName'] as String?) ?? '';
+      final serviceTitle = (data['serviceTitle'] as String?) ?? '';
+
+      final description = (helperName.isNotEmpty &&
+              serviceTitle.isNotEmpty)
+          ? 'Received $serviceTitle from $helperName'
+          : 'Someone helped you.';
+
       list.add(_HistoryTxn(
-        description: 'Someone helped you.',
+        description: description,
         credits: credits,
         isEarned: false,
         createdAt: createdAt,
@@ -281,4 +298,11 @@ String _formatDate(DateTime d) {
   ];
   final m = months[d.month - 1];
   return '${d.day} $m ${d.year}';
+}
+
+String _formatCredits(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+  return value.toStringAsFixed(1);
 }

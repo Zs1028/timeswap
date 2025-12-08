@@ -113,8 +113,8 @@ class YourRequestsPage extends StatelessWidget {
           unselectedLabelColor: Colors.black54,
           indicator: _RoundedUnderlineIndicator(),
           tabs: [
-            Text('Services Offered'),
-            Text('Services Requested'),
+            Text('Services You Offered'),
+            Text('Services You Requested'),
           ],
         ),
       ),

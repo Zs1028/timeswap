@@ -35,13 +35,6 @@ class TimeCreditPage extends StatelessWidget {
   }
 }
 
-/* ---------- SIMPLE FORMATTER ---------- */
-
-String _formatCredits(double c) {
-  if (c == c.roundToDouble()) return c.toInt().toString(); // 10.0 -> "10"
-  return c.toString(); // 1.5 -> "1.5"
-}
-
 /* ---------- DATA MODELS ---------- */
 
 class _TxnItem {
@@ -81,10 +74,10 @@ class _TimeCreditBody extends StatelessWidget {
   Future<_TimeCreditData> _loadData() async {
     final fs = FirebaseFirestore.instance;
 
-    // user balance (can be int or double in Firestore)
+    // user balance (double)
     final userSnap = await fs.collection('users').doc(uid).get();
-    final double balance =
-        (userSnap.data()?['timeCredits'] as num?)?.toDouble() ?? 0.0;
+    final balanceRaw = userSnap.data()?['timeCredits'] ?? 0;
+    final balance = (balanceRaw is num) ? balanceRaw.toDouble() : 0.0;
 
     // transactions – as helper (earned)
     final helperSnap = await fs
@@ -102,38 +95,60 @@ class _TimeCreditBody extends StatelessWidget {
         .orderBy('createdAt', descending: true)
         .get();
 
-    double totalEarned = 0.0;
-    double totalSpent = 0.0;
+    double totalEarned = 0;
+    double totalSpent = 0;
     final List<_TxnItem> all = [];
 
+    // earned side
     for (final doc in helperSnap.docs) {
       final data = doc.data();
-      final double credits =
-          (data['credits'] as num?)?.toDouble() ?? 0.0;
+      final creditsRaw = data['credits'] ?? 0;
+      final credits =
+          (creditsRaw is num) ? creditsRaw.toDouble() : 0.0;
+
       totalEarned += credits;
 
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
+      final helpeeName = (data['helpeeName'] as String?) ?? '';
+      final serviceTitle = (data['serviceTitle'] as String?) ?? '';
+
+      final description = (helpeeName.isNotEmpty &&
+              serviceTitle.isNotEmpty)
+          ? 'Helped $helpeeName with $serviceTitle'
+          : 'You helped someone.';
+
       all.add(_TxnItem(
-        description: 'You helped someone.',
+        description: description,
         credits: credits,
         isEarned: true,
         createdAt: createdAt,
       ));
     }
 
+    // spent side
     for (final doc in helpeeSnap.docs) {
       final data = doc.data();
-      final double credits =
-          (data['credits'] as num?)?.toDouble() ?? 0.0;
+      final creditsRaw = data['credits'] ?? 0;
+      final credits =
+          (creditsRaw is num) ? creditsRaw.toDouble() : 0.0;
+
       totalSpent += credits;
 
       final createdAt =
           (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now();
 
+      final helperName = (data['helperName'] as String?) ?? '';
+      final serviceTitle = (data['serviceTitle'] as String?) ?? '';
+
+      final description = (helperName.isNotEmpty &&
+              serviceTitle.isNotEmpty)
+          ? 'Received $serviceTitle from $helperName'
+          : 'Someone helped you.';
+
       all.add(_TxnItem(
-        description: 'Someone helped you.',
+        description: description,
         credits: credits,
         isEarned: false,
         createdAt: createdAt,
@@ -175,9 +190,9 @@ class _TimeCreditBody extends StatelessWidget {
 
         final data = snapshot.data ??
             _TimeCreditData(
-              balance: 0.0,
-              totalEarned: 0.0,
-              totalSpent: 0.0,
+              balance: 0,
+              totalEarned: 0,
+              totalSpent: 0,
               recent: const [],
             );
 
@@ -250,7 +265,8 @@ class _TotalBalanceCard extends StatelessWidget {
               Text(
                 _formatCredits(balance),
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      // not bold
+                      fontWeight: FontWeight.normal,
                     ),
               ),
             ],
@@ -264,7 +280,7 @@ class _TotalBalanceCard extends StatelessWidget {
                 label: 'Earned',
                 value: earned,
                 bg: _paleYellow,
-                icon: Icons.arrow_upward,
+                icon: Icons.hourglass_empty,
               ),
               const SizedBox(width: 16),
               _miniStat(
@@ -272,7 +288,7 @@ class _TotalBalanceCard extends StatelessWidget {
                 label: 'Spent',
                 value: spent,
                 bg: _paleYellow,
-                icon: Icons.arrow_downward,
+                icon: Icons.hourglass_empty,
               ),
             ],
           ),
@@ -300,6 +316,8 @@ class _TotalBalanceCard extends StatelessWidget {
           Text(
             label,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  // slightly bigger + bold
+                  fontSize: 15,
                   color: const Color(0xFFF39C50),
                   fontWeight: FontWeight.w700,
                 ),
@@ -355,6 +373,7 @@ class _TransactionPreviewCard extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       color: const Color(0xFFF39C50),
                       fontWeight: FontWeight.w700,
+                      fontSize: 16,
                     ),
               ),
               const Spacer(),
@@ -363,7 +382,17 @@ class _TransactionPreviewCard extends StatelessWidget {
                   Navigator.pushNamed(
                       context, AppRoutes.transactionHistory);
                 },
-                child: const Text('View all'),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                ),
+                child: const Text(
+                  'View all',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFF39C50),
+                  ),
+                ),
               ),
             ],
           ),
@@ -430,4 +459,12 @@ String _timeAgo(DateTime time) {
   if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
   if (diff.inHours < 24) return '${diff.inHours}h ago';
   return '${diff.inDays}d ago';
+}
+
+/// show 4.0 → "4", 1.5 → "1.5"
+String _formatCredits(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+  return value.toStringAsFixed(1);
 }
