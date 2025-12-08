@@ -445,30 +445,43 @@ class _ServiceCard extends StatelessWidget {
 
                     // View Applications (only when open)
                     if (showViewApplications) ...[
-                      const SizedBox(height: 8),
-                      TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  ServiceApplicationsPage(service: service),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 32,
+                          child: TextButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ServiceApplicationsPage(service: service),
+                                ),
+                              );
+                            },
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              backgroundColor: const Color(0xFFFFE5E2), // light red-ish
+                              foregroundColor: const Color(0xFFD32F2F), // darker red text/icon
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
                             ),
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        child: const Text(
-                          'View Applications',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            decoration: TextDecoration.underline,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                Icon(Icons.people_alt_outlined, size: 14),
+                                SizedBox(width: 4),
+                                Text(
+                                  'View applications',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
 
                     // Mark as completed (only when in progress)
                     if (showMarkCompleted) ...[

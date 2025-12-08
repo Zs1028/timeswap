@@ -417,134 +417,156 @@ class ServiceDetailsPage extends StatelessWidget {
   }
 
   // ---------- Dialogs (with Firestore write) ----------
-  void _showConfirmDialog(BuildContext context, bool isOfferListing) {
-    final String titleText = isOfferListing
-        ? 'Confirm Requesting this Service?'
-        : 'Confirm Offering this Service?';
+void _showConfirmDialog(BuildContext context, bool isOfferListing) {
+  final String titleText = isOfferListing
+      ? 'Confirm Requesting this Service?'
+      : 'Confirm Offering this Service?';
 
-    final String subtitleText = isOfferListing
-        ? 'You will send a request to the provider.'
-        : 'You will offer to provide this service.';
+  final String subtitleText = isOfferListing
+      ? 'You will send a request to the provider.'
+      : 'You will offer to provide this service.';
 
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withOpacity(0.25),
-      builder: (_) {
-        return Center(
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.78,
-            padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF7ED9A2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    titleText,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: Colors.black.withOpacity(0.25),
+    builder: (_) {
+      return Center(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.78,
+          padding: const EdgeInsets.fromLTRB(16, 22, 16, 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF7ED9A2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  titleText,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    subtitleText,
-                    style: const TextStyle(color: Colors.white70),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Expanded(
-                        child: SizedBox(
-                          height: 36,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              final user =
-                                  FirebaseAuth.instance.currentUser;
-                              if (user == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Please log in to continue.'),
-                                  ),
-                                );
-                                return;
-                              }
-                              try {
-                                await FirebaseFirestore.instance
-                                    .collection('serviceRequests')
-                                    .add({
-                                  'serviceId': service.id,
-                                  'serviceTitle': service.serviceTitle,
-                                  'providerId': service.providerId,
-                                  'providerName': service.providerName,
-                                  'requesterId': user.uid,
-                                  'requesterName':
-                                      user.displayName ?? 'Unknown User',
-                                  'status': 'pending',
-                                  'createdAt':
-                                      FieldValue.serverTimestamp(),
-                                  // you can later add a field like "requestType": "request" / "offer"
-                                });
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  subtitleText,
+                  style: const TextStyle(color: Colors.white70),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 36,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final user = FirebaseAuth.instance.currentUser;
+                            if (user == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content:
+                                      Text('Please log in to continue.'),
+                                ),
+                              );
+                              return;
+                            }
+
+                            try {
+                              // 🔎 get nice display name from users collection
+                              final userDoc = await FirebaseFirestore.instance
+                                  .collection('users')
+                                  .doc(user.uid)
+                                  .get();
+
+                              final requesterName =
+                                  (userDoc.data()?['name'] as String?) ??
+                                  user.email ??
+                                  'TimeSwap User';
+
+                              await FirebaseFirestore.instance
+                                  .collection('serviceRequests')
+                                  .add({
+                                'serviceId': service.id,
+                                'serviceTitle': service.serviceTitle,
+                                'providerId': service.providerId,
+                                'providerName': service.providerName,
+
+                                'requesterId': user.uid,
+                                'requesterName': requesterName,
+                                'requesterEmail': user.email ?? '',
+
+                                // optional: so you know if this was
+                                // "request this service" vs "offer this service"
+                                'requestType':
+                                    isOfferListing ? 'request' : 'offer',
+
+                                'status': 'pending',
+                                'createdAt': FieldValue.serverTimestamp(),
+                              });
+
+                              if (context.mounted) {
                                 Navigator.of(context).pop(); // close confirm
                                 _showSuccessDialog(context);
-                              } catch (e) {
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
                                 Navigator.of(context).pop();
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                        'Failed to send request: $e'),
+                                      'Failed to send request: $e',
+                                    ),
                                   ),
                                 );
                               }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFFFA64C),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFFFA64C),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Text('Confirm'),
                           ),
+                          child: const Text('Confirm'),
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SizedBox(
-                          height: 36,
-                          child: ElevatedButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFFE74C3C),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: SizedBox(
+                        height: 36,
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE74C3C),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                            child: const Text('Cancel'),
                           ),
+                          child: const Text('Cancel'),
                         ),
                       ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   void _showSuccessDialog(BuildContext context) {
     showDialog(
