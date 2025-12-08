@@ -1,76 +1,59 @@
-// lib/screens/profile/profile_page.dart
+// lib/screens/profile/provider_profile_page.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../../routes.dart';
+class ProviderProfilePage extends StatelessWidget {
+  final String providerId;
 
-class ProfilePage extends StatelessWidget {
-  const ProfilePage({super.key});
+  const ProviderProfilePage({
+    super.key,
+    required this.providerId,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacementNamed(context, AppRoutes.login);
-      });
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    final uid = user.uid;
-
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
       appBar: AppBar(
         backgroundColor: const Color(0xFFFADF8E),
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text(
-          'My Profile',
+          'Provider Profile',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.pushNamed(context, AppRoutes.settings);
-            },
-          ),
-        ],
+        centerTitle: true,
       ),
       body: SafeArea(
         child: StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
           stream: FirebaseFirestore.instance
               .collection('users')
-              .doc(uid)
+              .doc(providerId)
               .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final data = snapshot.data?.data() ?? {};
+            if (!snapshot.hasData || !snapshot.data!.exists) {
+              return const Center(child: Text('Provider not found.'));
+            }
 
-            final name = (data['name'] as String?) ??
-                FirebaseAuth.instance.currentUser?.displayName ??
-                'User';
+            final data = snapshot.data!.data() ?? {};
 
+            final name = (data['name'] as String?) ?? 'Provider';
             final location =
                 (data['state'] as String?) ??
                     (data['location'] as String?) ??
                     'Not set';
-
             final bio =
                 (data['bio'] as String?) ??
                     (data['about'] as String?) ??
-                    'Tell others more about yourself.';
-
-            final double timeCredits =
-                (data['timeCredits'] as num?)?.toDouble() ?? 0.0;
+                    'This provider has not added a bio yet.';
+            final phone = (data['phone'] as String?) ?? 'Not provided';
 
             final skillsRaw = data['skills'];
             final List<String> skills = skillsRaw is List
@@ -82,53 +65,47 @@ class ProfilePage extends StatelessWidget {
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
-                _MyHeaderCard(
+                _ProviderHeaderCard(
                   name: name,
                   location: location,
-                  credits: timeCredits,
+                  phone: phone,
                   photoUrl: photoUrl,
                 ),
                 const SizedBox(height: 12),
                 _BioCard(bio: bio),
                 const SizedBox(height: 12),
-                _MyStatsCard(userId: uid),
+                _ProviderStatsCard(userId: providerId),
                 const SizedBox(height: 12),
                 _SkillsCard(
-                  title: 'What I offer',
+                  title: 'Services Offered',
                   skills: skills,
                 ),
                 const SizedBox(height: 12),
-                _RatingsCard(userId: uid),
+                _RatingsCard(userId: providerId),
                 const SizedBox(height: 40),
               ],
             );
           },
         ),
       ),
-      bottomNavigationBar: const _BottomNav(currentIndex: 4),
     );
   }
 }
 
-/* -------------------- HEADER (OWN PROFILE) -------------------- */
+/* -------------------- PROVIDER HEADER -------------------- */
 
-class _MyHeaderCard extends StatelessWidget {
+class _ProviderHeaderCard extends StatelessWidget {
   final String name;
   final String location;
-  final double credits;
+  final String phone;
   final String? photoUrl;
 
-  const _MyHeaderCard({
+  const _ProviderHeaderCard({
     required this.name,
     required this.location,
-    required this.credits,
+    required this.phone,
     this.photoUrl,
   });
-
-  String _formatCredits(double c) {
-    if (c == c.roundToDouble()) return c.toInt().toString();
-    return c.toString();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,16 +146,16 @@ class _MyHeaderCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.hourglass_bottom, size: 18),
+              const Icon(Icons.phone, size: 16),
               const SizedBox(width: 4),
               Text(
-                '${_formatCredits(credits)} credits',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
+                phone,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.black87,
                     ),
               ),
             ],
@@ -190,7 +167,7 @@ class _MyHeaderCard extends StatelessWidget {
   }
 }
 
-/* -------------------- BIO CARD -------------------- */
+/* -------------------- BIO (REUSED) -------------------- */
 
 class _BioCard extends StatelessWidget {
   final String bio;
@@ -220,16 +197,15 @@ class _BioCard extends StatelessWidget {
   }
 }
 
-/* -------------------- MY STATS CARD -------------------- */
+/* -------------------- PROVIDER STATS -------------------- */
 
-class _MyStatsCard extends StatelessWidget {
+class _ProviderStatsCard extends StatelessWidget {
   final String userId;
-  const _MyStatsCard({required this.userId});
+  const _ProviderStatsCard({required this.userId});
 
   Future<Map<String, dynamic>> _loadStats() async {
     final fs = FirebaseFirestore.instance;
 
-    // services completed as helper (from transactions)
     final completedSnap = await fs
         .collection('transactions')
         .where('helperId', isEqualTo: userId)
@@ -238,7 +214,6 @@ class _MyStatsCard extends StatelessWidget {
 
     final completedCount = completedSnap.size;
 
-    // ratings average
     final ratingsSnap = await fs
         .collection('ratings')
         .where('revieweeId', isEqualTo: userId)
@@ -282,7 +257,7 @@ class _MyStatsCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'My Stats',
+                "Provider's Stats",
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
@@ -321,7 +296,7 @@ class _MyStatsCard extends StatelessWidget {
   }
 }
 
-/* -------------------- SKILLS (WHAT I OFFER) -------------------- */
+/* -------------------- SKILLS (SERVICES OFFERED) -------------------- */
 
 class _SkillsCard extends StatelessWidget {
   final String title;
@@ -348,7 +323,7 @@ class _SkillsCard extends StatelessWidget {
           const SizedBox(height: 8),
           if (skills.isEmpty)
             Text(
-              'No skills added yet.',
+              'No services added yet.',
               style: Theme.of(context).textTheme.bodyMedium,
             )
           else
@@ -381,7 +356,7 @@ class _SkillsCard extends StatelessWidget {
   }
 }
 
-/* -------------------- RATINGS LIST -------------------- */
+/* -------------------- RATINGS LIST (REUSED) -------------------- */
 
 class _RatingsCard extends StatelessWidget {
   final String userId;
@@ -460,7 +435,7 @@ class _RatingsCard extends StatelessWidget {
               const SizedBox(height: 6),
               if (docs.isEmpty)
                 Text(
-                  'No ratings yet. Once you complete sessions, reviews will show here.',
+                  'No ratings yet.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 )
               else ...[
@@ -573,53 +548,4 @@ String _timeAgo(DateTime time) {
   if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
   if (diff.inHours < 24) return '${diff.inHours}h ago';
   return '${diff.inDays}d ago';
-}
-
-/* -------------------- BOTTOM NAV -------------------- */
-
-class _BottomNav extends StatelessWidget {
-  final int currentIndex;
-  const _BottomNav({required this.currentIndex});
-
-  @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: currentIndex,
-      selectedItemColor: Colors.black87,
-      unselectedItemColor: Colors.black54,
-      showUnselectedLabels: true,
-      items: const [
-        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.handshake_outlined), label: 'Services'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined), label: 'Your Request'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline), label: 'Messages'),
-        BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline), label: 'Profile'),
-      ],
-      onTap: (i) {
-        if (i == currentIndex) return;
-        switch (i) {
-          case 0:
-            Navigator.pushNamed(context, AppRoutes.home);
-            break;
-          case 1:
-            Navigator.pushNamed(context, AppRoutes.services);
-            break;
-          case 2:
-            Navigator.pushNamed(context, AppRoutes.yourRequests);
-            break;
-          case 4:
-            Navigator.pushNamed(context, AppRoutes.profile);
-            break;
-          default:
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Tab $i coming soon')),
-            );
-        }
-      },
-    );
-  }
 }

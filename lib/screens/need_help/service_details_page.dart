@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../profile/provider_profile_page.dart';
 
 import '../../models/service_model.dart';
 
@@ -297,10 +298,16 @@ class ServiceDetailsPage extends StatelessWidget {
               width: 170,
               height: 32,
               child: ElevatedButton(
-                onPressed: () {
-                  // later: navigate to provider profile
-                  debugPrint('View provider profile tapped');
-                },
+                   onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ProviderProfilePage(
+                          providerId: service.providerId,
+                        ),
+                      ),
+                    );
+                  },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF52A8FF),
                   foregroundColor: Colors.white,

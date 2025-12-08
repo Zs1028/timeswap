@@ -15,8 +15,26 @@ class CreateProfilePage extends StatefulWidget {
 class _CreateProfilePageState extends State<CreateProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _about = TextEditingController();
-  final _skills = TextEditingController();
-  String? _location; // dropdown
+
+  // new: we no longer use a single skills TextField
+  final _customSkillController = TextEditingController();
+
+  String? _location; // dropdown (state)
+
+  // new: selected skills list
+  final List<String> _selectedSkills = [];
+
+  // quick-select skill options
+  final List<String> _quickSkills = const [
+    'Transport',
+    'Tutoring',
+    'Cooking',
+    'Cleaning',
+    'Pet Care',
+    'Elder Care',
+    'Gardening',
+    'Tech Support',
+  ];
 
   final _auth = FirebaseAuth.instance;
   final _firestore = FirebaseFirestore.instance;
@@ -26,17 +44,45 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
   @override
   void dispose() {
     _about.dispose();
-    _skills.dispose();
+    _customSkillController.dispose();
     super.dispose();
   }
 
+  void _toggleQuickSkill(String skill) {
+    setState(() {
+      if (_selectedSkills.contains(skill)) {
+        _selectedSkills.remove(skill);
+      } else {
+        _selectedSkills.add(skill);
+      }
+    });
+  }
+
+  void _addCustomSkill() {
+    final text = _customSkillController.text.trim();
+    if (text.isEmpty) return;
+    if (!_selectedSkills.contains(text)) {
+      setState(() {
+        _selectedSkills.add(text);
+      });
+    }
+    _customSkillController.clear();
+  }
+
   Future<void> _saveProfile() async {
-    // 1) Validate form
+    // 1) Validate basic form
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     if (_location == null || _location!.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select your location')),
+      );
+      return;
+    }
+
+    if (_selectedSkills.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select or add at least one skill')),
       );
       return;
     }
@@ -60,12 +106,19 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
       await _firestore.collection('users').doc(user.uid).set({
         'uid': user.uid,
         'email': user.email,
+
+        // New naming to match ProviderProfilePage:
+        'bio': _about.text.trim(),
+        'state': _location,
+        'skills': _selectedSkills, // store as List<String>
+
+        // Keep old keys too (backwards compatibility, safe if used elsewhere)
         'about': _about.text.trim(),
-        'skills': _skills.text.trim(),
         'location': _location,
+
         'createdAt': now,
         'updatedAt': now,
-      }, SetOptions(merge: true)); // merge so we don’t wipe anything else
+      }, SetOptions(merge: true));
 
       if (!mounted) return;
 
@@ -117,7 +170,9 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                     maxLines: 3,
                     decoration: _input('Write a short bio'),
                     validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Please write a bio' : null,
+                        (v == null || v.trim().isEmpty)
+                            ? 'Please write a bio'
+                            : null,
                   ),
 
                   _label('Where do you stay?'),
@@ -126,13 +181,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                     onChanged: (v) => setState(() => _location = v),
                   ),
 
-                  _label('What kind of skill you can offer?'),
-                  TextFormField(
-                    controller: _skills,
-                    decoration: _input('e.g., Math tutoring, Cooking'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Enter at least one skill' : null,
-                  ),
+                  _buildSkillsSection(),
 
                   _label('Add your profile picture (optional)'),
                   TextFormField(
@@ -191,6 +240,8 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     );
   }
 
+  // ---------- UI helpers ----------
+
   Widget _label(String t) => Padding(
         padding: const EdgeInsets.only(bottom: 6, top: 12),
         child: Text(
@@ -212,12 +263,107 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.orangeAccent, width: 1.5),
+          borderSide: const BorderSide(color: Colors.orangeAccent, width: 1.5),
         ),
       );
+
+  // -------- Skills Section (quick select + chips + custom input) --------
+  Widget _buildSkillsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _label('What can you help others with? *'),
+
+        // Quick select label
+        Text(
+          'Quick select:',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.black.withOpacity(0.75),
+          ),
+        ),
+        const SizedBox(height: 6),
+
+        // Quick select chips
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _quickSkills.map((skill) {
+            final selected = _selectedSkills.contains(skill);
+            return ChoiceChip(
+              label: Text(skill),
+              selected: selected,
+              onSelected: (_) => _toggleQuickSkill(skill),
+              selectedColor: const Color(0xFFD3F3DE),
+            );
+          }).toList(),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Your skills
+        Text(
+          'Your skills:',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (_selectedSkills.isEmpty)
+          Text(
+            'No skills selected yet.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.black.withOpacity(0.6),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _selectedSkills.map((s) {
+              return Chip(
+                label: Text(s),
+                deleteIcon: const Icon(Icons.close, size: 16),
+                onDeleted: () {
+                  setState(() {
+                    _selectedSkills.remove(s);
+                  });
+                },
+              );
+            }).toList(),
+          ),
+
+        const SizedBox(height: 12),
+
+        // Add custom skill
+        Text(
+          'Add custom skill:',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.black.withOpacity(0.8),
+          ),
+        ),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _customSkillController,
+          decoration: _input('Type here...').copyWith(
+            suffixIcon: IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: _addCustomSkill,
+            ),
+          ),
+          onSubmitted: (_) => _addCustomSkill(),
+        ),
+      ],
+    );
+  }
 }
 
-// location dropdown widget
+// location dropdown widget (same as before)
 class _LocationDropdown extends StatelessWidget {
   final String? value;
   final ValueChanged<String?> onChanged;
@@ -264,7 +410,7 @@ class _LocationDropdown extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.orangeAccent, width: 1.5),
+          borderSide: const BorderSide(color: Colors.orangeAccent, width: 1.5),
         ),
       ),
       hint: const Text('Select your location'),
