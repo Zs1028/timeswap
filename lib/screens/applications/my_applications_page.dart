@@ -7,14 +7,24 @@ import '../../models/service_application.dart';
 import '../../routes.dart';
 
 class MyApplicationsPage extends StatefulWidget {
-  const MyApplicationsPage({super.key});
+  final String initialStatusFilter;
+
+  const MyApplicationsPage({
+    super.key,
+    this.initialStatusFilter = 'pending',});
 
   @override
   State<MyApplicationsPage> createState() => _MyApplicationsPageState();
 }
 
 class _MyApplicationsPageState extends State<MyApplicationsPage> {
-  String _statusFilter = 'pending'; // pending | inprogress | accepted | declined | completed
+  late String _statusFilter;
+  
+  @override
+  void initState() {
+    super.initState();
+    _statusFilter = widget.initialStatusFilter.toLowerCase();
+  }
 
   @override
   Widget build(BuildContext context) {

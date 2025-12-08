@@ -9,7 +9,21 @@ import 'service_applications_page.dart';
 import '../../services/credit_service.dart';
 
 class YourRequestsPage extends StatelessWidget {
-  const YourRequestsPage({super.key});
+  /// 0 = Services You Offered tab, 1 = Services You Requested tab
+  final int initialTabIndex;
+
+  /// Default status filter for "Services You Offered" tab
+  final String initialOfferedStatus;
+
+  /// Default status filter for "Services You Requested" tab
+  final String initialRequestedStatus;
+
+  const YourRequestsPage({
+    super.key,
+    this.initialTabIndex = 0,
+    this.initialOfferedStatus = 'open',
+    this.initialRequestedStatus = 'open',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +63,7 @@ class YourRequestsPage extends StatelessWidget {
 
     return DefaultTabController(
       length: 2,
+      initialIndex: initialTabIndex.clamp(0, 1),
       child: Scaffold(
         backgroundColor: const Color(0xFFFFF4D1),
         appBar: AppBar(
@@ -68,22 +83,24 @@ class YourRequestsPage extends StatelessWidget {
               Expanded(
                 child: TabBarView(
                   children: [
-                    // Tab 1: Services Offered (you helped others)
+                    // Tab 1: Services You Offered
                     _MyServicesTab(
                       query: myOfferedQuery,
                       titlePrefix: 'Offer Help: ',
                       addButtonText: 'Add Offering',
                       isOfferedTab: true,
+                      initialStatusFilter: initialOfferedStatus,
                       onAddPressed: () =>
                           Navigator.pushNamed(context, AppRoutes.addOffering),
                     ),
 
-                    // Tab 2: Services Requested (others helped you)
+                    // Tab 2: Services You Requested
                     _MyServicesTab(
                       query: myRequestedQuery,
                       titlePrefix: 'Need Help: ',
                       addButtonText: 'Add Request',
                       isOfferedTab: false,
+                      initialStatusFilter: initialRequestedStatus,
                       onAddPressed: () =>
                           Navigator.pushNamed(context, AppRoutes.addRequest),
                     ),
@@ -153,6 +170,7 @@ class _MyServicesTab extends StatefulWidget {
   /// true  = "Services Offered" tab
   /// false = "Services Requested" tab
   final bool isOfferedTab;
+  final String initialStatusFilter; // NEW
 
   const _MyServicesTab({
     required this.query,
@@ -160,6 +178,7 @@ class _MyServicesTab extends StatefulWidget {
     required this.addButtonText,
     required this.onAddPressed,
     required this.isOfferedTab,
+    this.initialStatusFilter = 'open',
   });
 
   @override
@@ -167,7 +186,13 @@ class _MyServicesTab extends StatefulWidget {
 }
 
 class _MyServicesTabState extends State<_MyServicesTab> {
-  String _statusFilter = 'open'; // 'open' | 'inprogress' | 'completed'
+  late String _statusFilter; 
+
+  @override
+  void initState() {
+    super.initState();
+    _statusFilter = widget.initialStatusFilter.toLowerCase();
+  }
 
   @override
   Widget build(BuildContext context) {

@@ -2,7 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import '../services/your_requests_page.dart';
+import '../applications/my_applications_page.dart';
 import '../../routes.dart';
 
 class HomePage extends StatelessWidget {
@@ -356,72 +357,114 @@ class _ActivitySummaryCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // 1) Your request in progress
-              _summaryRow(
-                context,
-                label: 'Your requests in progress',
-                value: data['yourRequestsInProgress'] ?? 0,
-                onTap: () {
-                  // go to "Your Request" page
-                  Navigator.pushNamed(context, AppRoutes.yourRequests);
-                  // (if you later add initial-tab support, this is the place to use it)
-                },
-              ),
-              const SizedBox(height: 4),
+              // 1) Your requests in progress  → "Services You Requested" tab, status = inprogress
+            _summaryRow(
+              context,
+              label: 'Your requests in progress',
+              value: data['yourRequestsInProgress'] ?? 0,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => YourRequestsPage(
+                      initialTabIndex: 1,              // tab 1 = Services You Requested
+                      initialOfferedStatus: 'open',    // leave offered tab as open
+                      initialRequestedStatus: 'inprogress',
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 4),
 
-              // 2) Your offerings in progress
-              _summaryRow(
-                context,
-                label: 'Your offerings in progress',
-                value: data['yourOfferingsInProgress'] ?? 0,
-                onTap: () {
-                  Navigator.pushNamed(context, AppRoutes.yourRequests);
-                },
-              ),
-              const SizedBox(height: 4),
+            // 2) Your offerings in progress → "Services You Offered" tab, status = inprogress
+            _summaryRow(
+              context,
+              label: 'Your offerings in progress',
+              value: data['yourOfferingsInProgress'] ?? 0,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => YourRequestsPage(
+                      initialTabIndex: 0,              // tab 0 = Services You Offered
+                      initialOfferedStatus: 'inprogress',
+                      initialRequestedStatus: 'open',
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 4),
 
-              // 3) Your applications in progress
-              _summaryRow(
-                context,
-                label: 'Your applications in progress',
-                value: data['applicationsInProgress'] ?? 0,
-                onTap: () {
-                  Navigator.pushNamed(context, AppRoutes.myApplications);
-                },
-              ),
-              const SizedBox(height: 4),
+            // 3) Your applications in progress → MyApplicationsPage, status = inprogress
+            _summaryRow(
+              context,
+              label: 'Your applications in progress',
+              value: data['applicationsInProgress'] ?? 0,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const MyApplicationsPage(
+                      initialStatusFilter: 'inprogress',
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 4),
 
-              // 4) Service requests need your response
-              _summaryRow(
-                context,
-                label: 'Service requests need your response',
-                value: data['requestsNeedResponse'] ?? 0,
-                onTap: () {
-                  Navigator.pushNamed(context, AppRoutes.yourRequests);
-                },
-              ),
-              const SizedBox(height: 4),
+            // 4) Service requests need your response → requested tab, status = open
+            _summaryRow(
+              context,
+              label: 'Service requests need your response',
+              value: data['requestsNeedResponse'] ?? 0,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const YourRequestsPage(
+                      initialTabIndex: 1,               // Services You Requested
+                      initialOfferedStatus: 'open',
+                      initialRequestedStatus: 'open',
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 4),
 
-              // 5) Service offerings need your response
-              _summaryRow(
-                context,
-                label: 'Service offerings need your response',
-                value: data['offeringsNeedResponse'] ?? 0,
-                onTap: () {
-                  Navigator.pushNamed(context, AppRoutes.yourRequests);
-                },
-              ),
-              const SizedBox(height: 4),
+            // 5) Service offerings need your response → offered tab, status = open
+            _summaryRow(
+              context,
+              label: 'Service offerings need your response',
+              value: data['offeringsNeedResponse'] ?? 0,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const YourRequestsPage(
+                      initialTabIndex: 0,               // Services You Offered
+                      initialOfferedStatus: 'open',
+                      initialRequestedStatus: 'open',
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 4),
 
-              // 6) Hours earned this week
-              _summaryRow(
-                context,
-                label: 'Hours earned this week',
-                value: data['hoursEarnedThisWeek'] ?? 0.0,
-                onTap: () {
-                  Navigator.pushNamed(context, AppRoutes.timeCredits);
-                },
-              ),
+            // 6) Hours earned this week → Time Credits page (already correct)
+            _summaryRow(
+              context,
+              label: 'Hours earned this week',
+              value: data['hoursEarnedThisWeek'] ?? 0.0,
+              onTap: () {
+                Navigator.pushNamed(context, AppRoutes.timeCredits);
+              },
+            ),
+
             ],
           ),
         );
