@@ -2,14 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-
 import '../../models/service_model.dart';
 import '../../routes.dart';
 import '../need_help/service_details_page.dart';
+import '../need_help/filter_page.dart'; // 👈 for NeedHelpFilters
 
-
-class ServicesPage extends StatelessWidget {
+class ServicesPage extends StatefulWidget {
   const ServicesPage({super.key});
+
+  @override
+  State<ServicesPage> createState() => _ServicesPageState();
+}
+
+class _ServicesPageState extends State<ServicesPage> {
+  String _searchQuery = '';
+  NeedHelpFilters _filters = NeedHelpFilters.empty;
+
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,12 +75,16 @@ class ServicesPage extends StatelessWidget {
                       hideOwn: true,
                       titlePrefix: 'Offer Help: ',
                       emptyText: 'No offered services yet.',
+                      searchQuery: _searchQuery,
+                      filters: _filters,
                     ),
                     _ServicesList(
                       query: requestedQuery,
                       hideOwn: true,
                       titlePrefix: 'Need Help: ',
                       emptyText: 'No requested services yet.',
+                      searchQuery: _searchQuery,
+                      filters: _filters,
                     ),
                   ],
                 ),
@@ -107,41 +126,60 @@ class ServicesPage extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search Services',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
-                isDense: true,
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.black12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.black12),
-                ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 6,
+                    offset: Offset(0, 3),
+                  ),
+                ],
               ),
-              onChanged: (q) {
-                // later: local filtering
-              },
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () async {
-              final result =
-                  await Navigator.pushNamed(context, AppRoutes.needHelpFilter);
-              if (result != null) debugPrint('Filter result: $result');
-            },
-            icon: const Icon(Icons.tune),
-            tooltip: 'Filters',
-            style: IconButton.styleFrom(
-              backgroundColor: Colors.white,
-              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  const SizedBox(width: 8),
+                  const Icon(Icons.search, size: 20),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: const InputDecoration(
+                        hintText: 'Search Services',
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      onChanged: (q) {
+                        setState(() {
+                          _searchQuery = q;
+                        });
+                      },
+                    ),
+                  ),
+                  InkWell(
+                    onTap: () async {
+                      final result = await Navigator.pushNamed(
+                        context,
+                        AppRoutes.needHelpFilter,
+                        arguments: _filters,
+                      );
+
+                      if (result is NeedHelpFilters) {
+                        setState(() {
+                          _filters = result;
+                        });
+                      }
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      child: Icon(Icons.tune, size: 20),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                ],
+              ),
             ),
           ),
         ],
@@ -178,10 +216,15 @@ class _ServicesList extends StatelessWidget {
   final String titlePrefix;
   final String emptyText;
 
+  final String searchQuery;
+  final NeedHelpFilters filters;
+
   const _ServicesList({
     required this.query,
     required this.titlePrefix,
     required this.emptyText,
+    required this.searchQuery,
+    required this.filters,
     this.hideOwn = false,
   });
 
@@ -205,9 +248,34 @@ class _ServicesList extends StatelessWidget {
           final user = FirebaseAuth.instance.currentUser;
           if (user != null) {
             final uid = user.uid;
-            services =
-                services.where((s) => s.requesterId != uid).toList();
+            services = services.where((s) => s.requesterId != uid).toList();
           }
+        }
+
+        // 🔍 Apply search by title
+        final q = searchQuery.trim().toLowerCase();
+        if (q.isNotEmpty) {
+          services = services.where((s) {
+            final title = s.serviceTitle.toLowerCase();
+            return title.contains(q);
+          }).toList();
+        }
+
+        // 🏷 Filter by category
+        if (filters.category != null && filters.category!.isNotEmpty) {
+          services = services
+              .where((s) => s.category == filters.category)
+              .toList();
+        }
+
+        // 📍 Filter by location (state) using the beginning of `location`
+        if (filters.location != null && filters.location!.isNotEmpty) {
+          final locFilter = filters.location!.toLowerCase();
+          services = services.where((s) {
+            final loc = s.location.toLowerCase();
+            // location format like "Selangor - Setapak"
+            return loc.startsWith(locFilter);
+          }).toList();
         }
 
         if (services.isEmpty) {

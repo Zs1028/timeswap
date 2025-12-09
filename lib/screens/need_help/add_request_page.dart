@@ -83,6 +83,32 @@ class _AddRequestPageState extends State<AddRequestPage> {
     super.dispose();
   }
 
+  // ---------- DATE & TIME PICKERS (same behaviour as AddOfferingPage) ----------
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      _dateController.text =
+          '${picked.day}/${picked.month}/${picked.year}';
+      setState(() {});
+    }
+  }
+
+  Future<void> _pickTime(TextEditingController controller) async {
+    final picked =
+        await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    if (picked != null) {
+      controller.text = picked.format(context);
+      setState(() {});
+    }
+  }
+
   // --------------- SUBMIT LOGIC ---------------
 
   Future<void> _submit() async {
@@ -162,7 +188,6 @@ class _AddRequestPageState extends State<AddRequestPage> {
         'locationDetails': locationDetails,
         'availableTiming': availableTiming,
         'flexibleNotes': flexibleNotes,
-        // no more timeLimitDays
         'creditsPerHour': creditsRequired, // double
         'serviceStatus': 'open',
 
@@ -238,7 +263,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Date & Time
+                      // Date & Time (with pickers)
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -250,32 +275,52 @@ class _AddRequestPageState extends State<AddRequestPage> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      _buildTextField(
-                        label: 'Date',
-                        controller: _dateController,
-                        hint: '27/7/2025',
+
+                      // Date picker (tap to open calendar)
+                      GestureDetector(
+                        onTap: _pickDate,
+                        child: AbsorbPointer(
+                          child: _buildTextField(
+                            label: 'Date',
+                            controller: _dateController,
+                            hint: '27/7/2025',
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 8),
+
+                      // Time pickers (From / To)
                       Row(
                         children: [
                           Expanded(
-                            child: _buildTextField(
-                              label: 'From',
-                              controller: _fromTimeController,
-                              hint: '4:00 PM',
+                            child: GestureDetector(
+                              onTap: () => _pickTime(_fromTimeController),
+                              child: AbsorbPointer(
+                                child: _buildTextField(
+                                  label: 'From',
+                                  controller: _fromTimeController,
+                                  hint: '4:00 PM',
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: _buildTextField(
-                              label: 'To',
-                              controller: _toTimeController,
-                              hint: '6:00 PM',
+                            child: GestureDetector(
+                              onTap: () => _pickTime(_toTimeController),
+                              child: AbsorbPointer(
+                                child: _buildTextField(
+                                  label: 'To',
+                                  controller: _toTimeController,
+                                  hint: '6:00 PM',
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
+
                       _buildTextField(
                         label: 'Flexible timing (optional)',
                         controller: _flexibleNotesController,
@@ -285,6 +330,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                       ),
 
                       const SizedBox(height: 12),
+
                       // Category dropdown
                       _buildDropdown<String>(
                         label: 'Category *',
@@ -297,6 +343,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                       ),
 
                       const SizedBox(height: 12),
+
                       // Location state + details
                       Align(
                         alignment: Alignment.centerLeft,
@@ -326,6 +373,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                       ),
 
                       const SizedBox(height: 12),
+
                       // Time credits required dropdown
                       Align(
                         alignment: Alignment.centerLeft,

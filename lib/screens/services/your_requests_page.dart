@@ -6,6 +6,7 @@ import '../../models/service_model.dart';
 import '../../routes.dart';
 import '../need_help/service_details_page.dart';
 import 'service_applications_page.dart';
+import 'edit_service_page.dart'; // 👈 NEW
 import '../../services/credit_service.dart';
 
 class YourRequestsPage extends StatelessWidget {
@@ -186,7 +187,7 @@ class _MyServicesTab extends StatefulWidget {
 }
 
 class _MyServicesTabState extends State<_MyServicesTab> {
-  late String _statusFilter; 
+  late String _statusFilter;
 
   @override
   void initState() {
@@ -336,6 +337,10 @@ class _ServiceCard extends StatelessWidget {
     // ⭐ Both helper and helpee can rate after completion
     final bool showRateReview = isCompleted && (isHelper || isHelpee);
 
+    // ✅ NEW: can modify only when status = open
+    final bool canModify =
+        service.serviceStatus.toLowerCase() == 'open';
+
     return Material(
       color: Colors.transparent,
       child: Container(
@@ -470,43 +475,45 @@ class _ServiceCard extends StatelessWidget {
 
                     // View Applications (only when open)
                     if (showViewApplications) ...[
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          height: 32,
-                          child: TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ServiceApplicationsPage(service: service),
-                                ),
-                              );
-                            },
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              backgroundColor: const Color(0xFFFFE5E2), // light red-ish
-                              foregroundColor: const Color(0xFFD32F2F), // darker red text/icon
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 32,
+                        child: TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ServiceApplicationsPage(service: service),
                               ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: const [
-                                Icon(Icons.people_alt_outlined, size: 14),
-                                SizedBox(width: 4),
-                                Text(
-                                  'View applications',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 12),
+                            backgroundColor: const Color(0xFFFFE5E2),
+                            foregroundColor: const Color(0xFFD32F2F),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
                             ),
                           ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: const [
+                              Icon(Icons.people_alt_outlined, size: 14),
+                              SizedBox(width: 4),
+                              Text(
+                                'View applications',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
+                      ),
+                    ],
 
                     // Mark as completed (only when in progress)
                     if (showMarkCompleted) ...[
@@ -555,6 +562,38 @@ class _ServiceCard extends StatelessWidget {
                         ),
                       ),
                     ],
+
+                    // ✏️ Edit / 🗑 Delete icons  → only when status is OPEN
+                    if (canModify) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _circleIconButton(
+                          icon: Icons.edit,
+                          tooltip: 'Edit service',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => EditServicePage(
+                                  service: service,
+                                  isOfferedTab: isOfferedTab,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        _circleIconButton(
+                          icon: Icons.delete_outline,
+                          tooltip: 'Delete service',
+                          iconColor: Colors.red,
+                          onTap: () => _confirmDeleteService(context),
+                        ),
+                      ],
+                     ),
+                    ]
                   ],
                 ),
               ],
@@ -565,13 +604,127 @@ class _ServiceCard extends StatelessWidget {
     );
   }
 
+  // --- Small circular icon button used for edit/delete ---
+  static Widget _circleIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    String? tooltip,
+    Color? iconColor,
+  }) {
+    final btn = InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Color(0xFFF0F0F0),
+        ),
+        child: Icon(
+          icon,
+          size: 18,
+          color: iconColor ?? Colors.black87,
+        ),
+      ),
+    );
+
+    if (tooltip != null) {
+      return Tooltip(message: tooltip, child: btn);
+    }
+    return btn;
+  }
+
+  // --- Delete confirmation dialog + success message ---
+  Future<void> _confirmDeleteService(BuildContext context) async {
+    final String confirmText = isOfferedTab
+        ? 'Confirm deleting this service you offered?'
+        : 'Confirm deleting this service you requested?';
+
+    final String successText = isOfferedTab
+        ? 'You have successfully confirmed deleting the service you offered.'
+        : 'You have successfully confirmed deleting the service you requested.';
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Delete service',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          content: Text(
+            confirmText,
+            style: const TextStyle(fontSize: 14),
+          ),
+          actionsPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          actions: [
+            // LEFT: ORANGE Confirm
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () async {
+                  await _deleteServiceDoc(ctx);
+                  if (ctx.mounted) Navigator.pop(ctx, true);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFF39C50),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text('Confirm'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // RIGHT: RED Cancel
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text('Cancel'),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(successText)),
+      );
+    }
+  }
+
+  Future<void> _deleteServiceDoc(BuildContext context) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('services')
+          .doc(service.id)
+          .delete();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to delete service: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _markAsCompleted(BuildContext context) async {
     try {
-      // 🔥 This will:
-      //  - check credits
-      //  - move credits helpee → helper
-      //  - set serviceStatus = "completed"
-      //  - create a transaction doc
       await CreditService.completeServiceAndTransferCredits(service);
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -586,8 +739,7 @@ class _ServiceCard extends StatelessWidget {
     }
   }
 
-  // ---------- Rating logic (updated to support helper/helpee) ----------
-
+  // ---------- Rating logic (helper/helpee) ----------
   Future<void> _openRatingDialog(BuildContext context) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {

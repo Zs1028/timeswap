@@ -5,21 +5,19 @@ import 'package:flutter/material.dart';
 /// --------------------
 class NeedHelpFilters {
   final String? category; // e.g. "Transportation"
-  final String? location; // e.g. "Setapak"
-  final String? status;   // "Open" | "Pending"
+  final String? location; // e.g. "Selangor" (state)
 
-  const NeedHelpFilters({this.category, this.location, this.status});
+  const NeedHelpFilters({this.category, this.location});
 
-  NeedHelpFilters copyWith({String? category, String? location, String? status}) {
+  NeedHelpFilters copyWith({String? category, String? location}) {
     return NeedHelpFilters(
       category: category ?? this.category,
       location: location ?? this.location,
-      status: status ?? this.status,
     );
   }
 
   static const empty = NeedHelpFilters();
-  bool get isEmpty => category == null && location == null && status == null;
+  bool get isEmpty => category == null && location == null;
 }
 
 /// --------------------------------------------
@@ -35,33 +33,44 @@ class NeedHelpFiltersPage extends StatefulWidget {
 }
 
 class _NeedHelpFiltersPageState extends State<NeedHelpFiltersPage> {
-  /// You’ll probably replace these with data from Firestore / your repo later.
+  /// Category + Location (by state)
   static const _categories = <String>[
-    'Transportation',
     'Home Services',
-    'Education',
-    'Elderly Support',
+    'Education & Tutoring',
+    'Transportation',
+    'Care & Support',
+    'Food & Cooking',
+    'Handyman & Repairs',
+    'Technology & IT',
+    'Creative & Arts',
     'Other',
   ];
+
+  // Malaysia states (same idea as your Add pages)
   static const _locations = <String>[
-    'Setapak',
-    'Wangsa Maju',
-    'Selayang',
-    'Kepong',
-    'Gombak',
+    'Johor',
+    'Kedah',
+    'Kelantan',
+    'Melaka',
+    'Negeri Sembilan',
+    'Pahang',
+    'Perak',
+    'Perlis',
+    'Pulau Pinang',
+    'Sabah',
+    'Sarawak',
+    'Selangor',
+    'W.P. Kuala Lumpur',
   ];
-  static const _statuses = <String>['Open', 'Pending'];
 
   String? _category;
   String? _location;
-  String? _status;
 
   @override
   void initState() {
     super.initState();
     _category = widget.initial.category;
     _location = widget.initial.location;
-    _status   = widget.initial.status;
   }
 
   @override
@@ -78,7 +87,13 @@ class _NeedHelpFiltersPageState extends State<NeedHelpFiltersPage> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 8))],
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 16,
+                  offset: Offset(0, 8),
+                )
+              ],
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -91,7 +106,10 @@ class _NeedHelpFiltersPageState extends State<NeedHelpFiltersPage> {
                       const Expanded(
                         child: Text(
                           'Filter by',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       IconButton(
@@ -106,35 +124,24 @@ class _NeedHelpFiltersPageState extends State<NeedHelpFiltersPage> {
                   // Row: Category + Location
                   Row(
                     children: [
-                      Expanded(child: _dropdownField(
-                        label: 'Category',
-                        value: _category,
-                        items: _categories,
-                        onChanged: (v) => setState(() => _category = v),
-                      )),
-                      const SizedBox(width: 12),
-                      Expanded(child: _dropdownField(
-                        label: 'Location',
-                        value: _location,
-                        items: _locations,
-                        onChanged: (v) => setState(() => _location = v),
-                      )),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Status (single in the middle like your Figma)
-                  Align(
-                    alignment: Alignment.center,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 180),
-                      child: _dropdownField(
-                        label: 'Status',
-                        value: _status,
-                        items: _statuses,
-                        onChanged: (v) => setState(() => _status = v),
+                      Expanded(
+                        child: _dropdownField(
+                          label: 'Category',
+                          value: _category,
+                          items: _categories,
+                          onChanged: (v) => setState(() => _category = v),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _dropdownField(
+                          label: 'Location (state)',
+                          value: _location,
+                          items: _locations,
+                          onChanged: (v) => setState(() => _location = v),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
 
@@ -146,7 +153,6 @@ class _NeedHelpFiltersPageState extends State<NeedHelpFiltersPage> {
                           setState(() {
                             _category = null;
                             _location = null;
-                            _status = null;
                           });
                         },
                         child: const Text('Reset'),
@@ -159,15 +165,23 @@ class _NeedHelpFiltersPageState extends State<NeedHelpFiltersPage> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFFFB84D), // warm orange
                             foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
                           ),
                           onPressed: () {
                             Navigator.pop(
                               context,
-                              NeedHelpFilters(category: _category, location: _location, status: _status),
+                              NeedHelpFilters(
+                                category: _category,
+                                location: _location,
+                              ),
                             );
                           },
-                          child: const Text('Apply Filters', style: TextStyle(fontWeight: FontWeight.w700)),
+                          child: const Text(
+                            'Apply Filters',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
                         ),
                       ),
                     ],
@@ -195,7 +209,10 @@ class _NeedHelpFiltersPageState extends State<NeedHelpFiltersPage> {
         isDense: true,
         filled: true,
         fillColor: const Color(0xFFFFF9EE),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(24),
           borderSide: const BorderSide(color: Colors.black12),
@@ -206,10 +223,12 @@ class _NeedHelpFiltersPageState extends State<NeedHelpFiltersPage> {
         ),
       ),
       items: items
-          .map((e) => DropdownMenuItem<String>(
-                value: e,
-                child: Text(e),
-              ))
+          .map(
+            (e) => DropdownMenuItem<String>(
+              value: e,
+              child: Text(e),
+            ),
+          )
           .toList(),
       onChanged: onChanged,
       icon: const Icon(Icons.keyboard_arrow_down_rounded),

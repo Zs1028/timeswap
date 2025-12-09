@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
-class AddOfferingPage extends StatefulWidget {
-  const AddOfferingPage({super.key});
+import '../../models/service_model.dart';
+
+class EditServicePage extends StatefulWidget {
+  final Service service;
+  final bool isOfferedTab; // true = offered, false = requested
+
+  const EditServicePage({
+    super.key,
+    required this.service,
+    required this.isOfferedTab,
+  });
 
   @override
-  State<AddOfferingPage> createState() => _AddOfferingPageState();
+  State<EditServicePage> createState() => _EditServicePageState();
 }
 
-class _AddOfferingPageState extends State<AddOfferingPage> {
+class _EditServicePageState extends State<EditServicePage> {
   final _formKey = GlobalKey<FormState>();
 
   final _titleController = TextEditingController();
@@ -31,7 +39,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
 
   bool _isSubmitting = false;
 
-  // category options
+  // category options (same as AddOfferingPage)
   final List<String> _categories = const [
     'Home Services',
     'Education & Tutoring',
@@ -44,7 +52,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     'Other',
   ];
 
-  // 14 Malaysia states + KL
+  // 14 Malaysia states + KL (same as AddOfferingPage)
   final List<String> _states = const [
     'Johor',
     'Kedah',
@@ -62,7 +70,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     'Kuala Lumpur',
   ];
 
-  // credits options
+  // credits options (same as AddOfferingPage)
   final List<double> _creditOptions = const [
     1.0,
     1.5,
@@ -71,6 +79,70 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     4.0,
     5.0,
   ];
+
+  @override
+void initState() {
+  super.initState();
+
+  final s = widget.service;
+
+  // Basic fields
+  _titleController.text = s.serviceTitle;
+  _descriptionController.text = s.serviceDescription;
+  _flexibleNotesController.text = s.flexibleNotes ?? '';
+
+  // ✅ Parse state + location details from `location`
+  String parsedState = '';
+  String parsedLocationDetails = '';
+
+  if (s.location.contains(' - ')) {
+    final parts = s.location.split(' - ');
+    parsedState = parts[0].trim();
+    parsedLocationDetails = parts.length > 1 ? parts[1].trim() : '';
+  } else {
+    parsedState = s.location.trim();
+  }
+
+  _selectedState = _states.contains(parsedState) ? parsedState : null;
+  _locationDetailsController.text = parsedLocationDetails;
+
+  // Category
+  _selectedCategory = _categories.contains(s.category)
+      ? s.category
+      : null;
+
+  // Credits
+  _selectedCreditsRequired =
+      (s.creditsPerHour is num)
+          ? (s.creditsPerHour as num).toDouble()
+          : null;
+
+  // ✅ Parse availableTiming: "date, from - to"
+  String date = '';
+  String from = '';
+  String to = '';
+
+  if (s.availableTiming.isNotEmpty) {
+    final parts = s.availableTiming.split(',');
+    if (parts.isNotEmpty) {
+      date = parts[0].trim();
+    }
+    if (parts.length > 1) {
+      final timeRange = parts[1].split('-');
+      if (timeRange.isNotEmpty) {
+        from = timeRange[0].trim();
+      }
+      if (timeRange.length > 1) {
+        to = timeRange[1].trim();
+      }
+    }
+  }
+
+  _dateController.text = date;
+  _fromTimeController.text = from;
+  _toTimeController.text = to;
+}
+
 
   @override
   void dispose() {
@@ -108,113 +180,85 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     }
   }
 
-  Future<void> _submit() async {
-  // 1️⃣ Get logged-in user
-  final user = FirebaseAuth.instance.currentUser;
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please log in first.')),
-    );
-    return;
-  }
+  Future<void> _saveChanges() async {
+    // Validate basic fields
+    if (!_formKey.currentState!.validate()) return;
 
-  // 2️⃣ Validate basic fields
-  if (!_formKey.currentState!.validate()) return;
+    final title = _titleController.text.trim();
+    final description = _descriptionController.text.trim();
+    final date = _dateController.text.trim();
+    final from = _fromTimeController.text.trim();
+    final to = _toTimeController.text.trim();
+    final category = _selectedCategory ?? '';
+    final state = _selectedState ?? '';
+    final locationDetails = _locationDetailsController.text.trim();
+    final flexibleNotes = _flexibleNotesController.text.trim();
+    final creditsRequired = _selectedCreditsRequired;
 
-  final String currentUserId = user.uid;
+    if (title.isEmpty ||
+        description.isEmpty ||
+        date.isEmpty ||
+        from.isEmpty ||
+        to.isEmpty ||
+        category.isEmpty ||
+        state.isEmpty ||
+        creditsRequired == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required fields.')),
+      );
+      return;
+    }
 
-  // 🔹 NEW: fetch display name from `users` collection (fallback to email)
-  final userDoc = await FirebaseFirestore.instance
-      .collection('users')
-      .doc(currentUserId)
-      .get();
+    // build location string (state + optional details)
+    final location = [
+      state,
+      if (locationDetails.isNotEmpty) locationDetails,
+    ].join(' - ');
 
-  final String providerName =
-      (userDoc.data()?['name'] as String?) ??
-      user.displayName ??
-      user.email ??
-      'TimeSwap User';
+    final availableTiming = '$date, $from - $to';
 
-  final title = _titleController.text.trim();
-  final description = _descriptionController.text.trim();
-  final date = _dateController.text.trim();
-  final from = _fromTimeController.text.trim();
-  final to = _toTimeController.text.trim();
-  final category = _selectedCategory ?? '';
-  final state = _selectedState ?? '';
-  final locationDetails = _locationDetailsController.text.trim();
-  final flexibleNotes = _flexibleNotesController.text.trim();
-  final creditsRequired = _selectedCreditsRequired;
+    setState(() => _isSubmitting = true);
 
-  // extra safety (should already be covered by validators)
-  if (title.isEmpty ||
-      description.isEmpty ||
-      date.isEmpty ||
-      from.isEmpty ||
-      to.isEmpty ||
-      category.isEmpty ||
-      state.isEmpty ||
-      creditsRequired == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please fill in all required fields.')),
-    );
-    return;
-  }
+    try {
+      await FirebaseFirestore.instance
+          .collection('services')
+          .doc(widget.service.id)
+          .update({
+        'serviceTitle': title,
+        'serviceDescription': description,
+        'category': category,
+        'location': location,
+        'state': state,
+        'locationDetails': locationDetails,
+        'availableTiming': availableTiming,
+        'flexibleNotes': flexibleNotes,
+        'creditsPerHour': creditsRequired,
+        'updatedDate': FieldValue.serverTimestamp(),
+      });
 
-  // build location string (state + optional details)
-  final location = [
-    state,
-    if (locationDetails.isNotEmpty) locationDetails,
-  ].join(' - ');
-
-  final availableTiming = '$date, $from - $to';
-
-  setState(() => _isSubmitting = true);
-
-  try {
-    await FirebaseFirestore.instance.collection('services').add({
-      'serviceTitle': title,
-      'serviceDescription': description,
-      'category': category,
-      'location': location,
-      'state': state,
-      'locationDetails': locationDetails,
-      'availableTiming': availableTiming,
-      'flexibleNotes': flexibleNotes,
-      // keep same field name so existing UI still works
-      'creditsPerHour': creditsRequired,
-      'serviceStatus': 'open',
-
-      // ⭐ OFFER HELP LOGIC
-      'providerId': currentUserId,
-      'providerName': providerName, // ← use name now
-
-      // requester stays same logic as before
-      'requesterId': currentUserId,
-      'serviceType': 'offer',
-      'createdDate': FieldValue.serverTimestamp(),
-    });
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Offering created successfully.')),
-    );
-    Navigator.of(context).pop();
-  } catch (e) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Failed to create offering: $e')),
-    );
-  } finally {
-    if (mounted) {
-      setState(() => _isSubmitting = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Service updated successfully.')),
+      );
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update service: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
-}
-
 
   @override
   Widget build(BuildContext context) {
+    final String appBarTitle = widget.isOfferedTab
+        ? 'Edit Service Offered'
+        : 'Edit Service Requested';
+
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
       appBar: AppBar(
@@ -224,9 +268,9 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Add Offerings Form',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        title: Text(
+          appBarTitle,
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
       ),
@@ -358,10 +402,10 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
 
                       // State dropdown
                       _buildDropdown<String>(
-                        label: 'Location (state) *',
+                        label: 'Location (state / area) *',
                         value: _selectedState,
                         items: _states,
-                        hint: 'Select state',
+                        hint: 'Select state or area',
                         validator: (v) =>
                             v == null ? 'Please select a state' : null,
                         onChanged: (v) =>
@@ -441,42 +485,68 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                         validator: (v) =>
                             v == null ? 'Please select time credits' : null,
                       ),
-                      const SizedBox(height: 80),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
               ),
             ),
+
+            // Bottom buttons: Cancel (red) + Save (green)
             Container(
               color: const Color(0xFFFFF4D1),
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF39C50),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => Navigator.of(context).pop(false),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text(
+                        'Cancel',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
                   ),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Create Offering',
-                          style: TextStyle(fontWeight: FontWeight.w600),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting ? null : _saveChanges,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF4CAF50),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
                         ),
-                ),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            )
+                          : const Text(
+                              'Save',
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -485,7 +555,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     );
   }
 
-  // Shared text field builder (keeps your design)
+  // Shared text field builder (same as AddOfferingPage)
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
@@ -531,7 +601,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     );
   }
 
-  // Shared dropdown builder using same label style
+  // Shared dropdown builder (same as AddOfferingPage)
   Widget _buildDropdown<T>({
     required String label,
     required T? value,
