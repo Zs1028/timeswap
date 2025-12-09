@@ -1,6 +1,8 @@
 // lib/screens/profile/provider_profile_page.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'review_ratings_page.dart';
+
 
 class ProviderProfilePage extends StatelessWidget {
   final String providerId;
@@ -423,9 +425,13 @@ class _RatingsCard extends StatelessWidget {
                   const Spacer(),
                   TextButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Full reviews page coming soon')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReviewRatingsPage(
+                            userId: userId,    // ✅ use the field declared at top
+                          ),
+                        ),
                       );
                     },
                     child: const Text('See All'),

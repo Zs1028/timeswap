@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'review_ratings_page.dart';
 
 import '../../routes.dart';
 
@@ -512,10 +513,16 @@ class _RatingsCard extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content:
-                                Text('Full reviews page coming soon.')),
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user == null) return;
+                      final displayName = (user.displayName ?? user.email ?? 'TimeSwap User');
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ReviewRatingsPage(
+                            userId: user.uid,    // the person being reviewed
+                          ),
+                        ),
                       );
                     },
                     child: const Text('View all'),
