@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../models/service_model.dart';
 import '../../models/service_application.dart';
 import 'package:timeswap/services/credit_service.dart';
+import '../profile/provider_profile_page.dart';
+
 
 class ServiceApplicationsPage extends StatelessWidget {
   final Service service;
@@ -88,117 +90,151 @@ class _ApplicationCard extends StatelessWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isPending = application.status.toLowerCase() == 'pending';
+    @override
+    Widget build(BuildContext context) {
+      final isPending = application.status.toLowerCase() == 'pending';
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Top row: name + status chip
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  application.requesterName.isNotEmpty
-                      ? application.requesterName
-                      : application.requesterId,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _statusColor(application.status),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  application.status,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Applied on: ${application.createdAt}',
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.black.withOpacity(0.6),
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 8,
+              offset: Offset(0, 4),
             ),
-          ),
-          const SizedBox(height: 12),
-
-          if (isPending)
+          ],
+        ),
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Top row: name + status chip
             Row(
               children: [
                 Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: ElevatedButton(
-                      onPressed: () => _acceptApplication(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF7ED9A2),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      child: const Text(
-                        'Accept',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                  child: Text(
+                    application.requesterName.isNotEmpty
+                        ? application.requesterName
+                        : application.requesterId,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: SizedBox(
-                    height: 36,
-                    child: ElevatedButton(
-                      onPressed: () => _declineApplication(context),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFE74C3C),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      child: const Text(
-                        'Decline',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _statusColor(application.status),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    application.status,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ],
-            )
-          else
-            const SizedBox.shrink(),
-        ],
-      ),
-    );
-  }
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Applied on: ${application.createdAt}',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.black.withOpacity(0.6),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // 💙 View profile button
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  backgroundColor: const Color(0xFFE3F2FD),   // light blue
+                  foregroundColor: const Color(0xFF1565C0),   // darker blue
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ProviderProfilePage(
+                        providerId: application.requesterId, // applicant’s UID
+                      ),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'View profile',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            if (isPending)
+              Row(
+                children: [
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: ElevatedButton(
+                        onPressed: () => _acceptApplication(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF7ED9A2),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: const Text(
+                          'Accept',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: SizedBox(
+                      height: 36,
+                      child: ElevatedButton(
+                        onPressed: () => _declineApplication(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE74C3C),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: const Text(
+                          'Decline',
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              const SizedBox.shrink(),
+          ],
+        ),
+      );
+    }
+
 
   Future<void> _acceptApplication(BuildContext context) async {
     try {

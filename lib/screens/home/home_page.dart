@@ -762,6 +762,9 @@ class _BottomNav extends StatelessWidget {
       selectedItemColor: Colors.black87,
       unselectedItemColor: Colors.black54,
       showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
+      selectedFontSize: 11,
+      unselectedFontSize: 10,
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(
