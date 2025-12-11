@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'screens/welcome/welcome_page.dart';
-import 'screens/welcome/welcome_page_2.dart';
 import 'screens/auth/signup_page.dart';
 import 'screens/auth/login_page.dart';
 import 'screens/profile/create_profile_page.dart';
@@ -21,7 +20,6 @@ import 'screens/applications/my_applications_page.dart';
 
 class AppRoutes {
   static const welcome = '/';
-  static const welcome2 = '/welcome2';
   static const signup = '/signup';
   static const login = '/login';
   static const createProfile = '/create-profile';
@@ -42,9 +40,6 @@ class AppRoutes {
     switch (settings.name) {
       case welcome:
         return _buildRoute(const WelcomePage());
-
-      case welcome2:
-        return _buildRoute(const WelcomePage2());
 
       case signup:
         return _buildRoute(const SignupPage());
