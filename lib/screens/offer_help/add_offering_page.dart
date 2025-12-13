@@ -389,17 +389,17 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Standard rate: 1 credit = 1 hour',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black.withOpacity(0.6),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
+                      //Align(
+                      //  alignment: Alignment.centerLeft,
+                      //  child: Text(
+                       //   'Standard rate: 1 credit = 1 hour',
+                       //   style: TextStyle(
+                       //     fontSize: 12,
+                       //     color: Colors.black.withOpacity(0.6),
+                       //   ),
+                      //  ),
+                    //  ),
+                     // const SizedBox(height: 6),//
 
                       DropdownButtonFormField<double>(
                         value: _selectedCreditsRequired,
@@ -427,7 +427,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                           if (c == 1.0) {
                             label = '1 hour (1 credit)';
                           } else if (c == 5.0) {
-                            label = '5+ hours (5+ credits)';
+                            label = '5 hours (5 credits)';
                           } else {
                             label = '${c.toString()} hours (${c.toString()} credits)';
                           }
@@ -512,6 +512,9 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
           validator: validator,
           decoration: InputDecoration(
             hintText: hint,
+             hintStyle: TextStyle(
+              color: Colors.grey.shade400, // 👈 lighter placeholder
+              fontSize: 14,),
             filled: true,
             fillColor: Colors.white,
             isDense: true,

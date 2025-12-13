@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:timeswap/services/auth_service.dart';
 import 'package:timeswap/routes.dart';
-import '../welcome/widgets/clock_logo.dart'; // path from /auth to /welcome/widgets
+import '../welcome/widgets/clock_logo.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,10 +13,9 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
-  final _pass  = TextEditingController();
+  final _pass = TextEditingController();
   bool _hide = true;
 
-  // 🔥 backend stuff
   final _authService = AuthService();
   bool _loading = false;
 
@@ -39,7 +38,6 @@ class _LoginPageState extends State<LoginPage> {
       if (!mounted) return;
 
       if (user != null) {
-        // ✅ Login success → go to Home
         Navigator.pushReplacementNamed(context, AppRoutes.home);
       }
     } on FirebaseAuthException catch (e) {
@@ -57,6 +55,53 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // ✅ FORGOT PASSWORD LOGIC
+  Future<void> _handleForgotPassword() async {
+    final email = _email.text.trim();
+
+    // If user hasn’t typed email yet, show a message
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter your email first.')),
+      );
+      return;
+    }
+
+    // Basic format check (same as your validator)
+    final ok = RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(email);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid email format.')),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      // ✅ best-practice message (doesn't reveal whether account exists)
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'If an account exists for this email, a password reset link has been sent.',
+          ),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Failed to send reset email')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -64,7 +109,7 @@ class _LoginPageState extends State<LoginPage> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(''), // keep minimal, mock has no title in bar
+        title: const Text(''),
       ),
       body: SafeArea(
         child: ListView(
@@ -122,7 +167,7 @@ class _LoginPageState extends State<LoginPage> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () => debugPrint('Forgot Password'),
+                      onPressed: _loading ? null : _handleForgotPassword, // ✅ changed here
                       child: const Text('Forgot Password?'),
                     ),
                   ),
@@ -163,8 +208,7 @@ class _LoginPageState extends State<LoginPage> {
                         style: TextStyle(color: Colors.black.withOpacity(0.46)),
                       ),
                       TextButton(
-                        onPressed: () =>
-                            Navigator.pushNamed(context, AppRoutes.signup),
+                        onPressed: () => Navigator.pushNamed(context, AppRoutes.signup),
                         child: const Text('Sign Up'),
                       ),
                     ],
@@ -182,13 +226,12 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Helpers
   Widget _label(String t) => Padding(
         padding: const EdgeInsets.only(bottom: 6, top: 6),
         child: Text(
           t,
           style: const TextStyle(
-          fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w600,
           ),
         ),
       );
@@ -197,8 +240,7 @@ class _LoginPageState extends State<LoginPage> {
         hintText: hint,
         filled: true,
         fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),

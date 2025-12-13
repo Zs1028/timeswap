@@ -136,14 +136,30 @@ class _ProfileHeaderCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // Avatar on top, centered
-          CircleAvatar(
-            radius: 32,
-            backgroundColor: Colors.white,
-            backgroundImage:
-                (photoUrl != null && photoUrl!.isNotEmpty) ? NetworkImage(photoUrl!) : null,
-            child: (photoUrl == null || photoUrl!.isEmpty)
-                ? const Icon(Icons.person, size: 32)
-                : null,
+          Container(
+        padding: const EdgeInsets.all(3), // space for border
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: const Color(0xFFF39C50), // orange border
+            width: 2,
+          ),
+        ),
+        child: CircleAvatar(
+          radius: 32,
+          backgroundColor: const Color(0xFFFFF4D1), // light yellow bg
+          backgroundImage:
+              (photoUrl != null && photoUrl!.isNotEmpty)
+                  ? NetworkImage(photoUrl!)
+                  : null,
+          child: (photoUrl == null || photoUrl!.isEmpty)
+              ? const Icon(
+                  Icons.person,
+                  size: 32,
+                  color: Colors.black87,
+                )
+              : null,
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -199,7 +215,7 @@ class _BioCard extends StatelessWidget {
     return _ShadowCard(
       bg: Colors.white,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Centered title + edit icon on the right
           Row(
@@ -335,6 +351,7 @@ class _StatsCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.check_circle_outline,
                       size: 18, color: Colors.green),
@@ -347,6 +364,7 @@ class _StatsCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.star_border,
                       size: 18, color: Colors.amber),
@@ -413,6 +431,7 @@ class _SkillsCard extends StatelessWidget {
             )
           else
             Wrap(
+              alignment: WrapAlignment.center,
               spacing: 8,
               runSpacing: 8,
               children: skills

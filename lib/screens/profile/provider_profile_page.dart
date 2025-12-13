@@ -180,10 +180,11 @@ class _BioCard extends StatelessWidget {
     return _ShadowCard(
       bg: const Color(0xFFF5F5F5),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             'Bio',
+            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -256,7 +257,7 @@ class _ProviderStatsCard extends StatelessWidget {
         return _ShadowCard(
           bg: const Color(0xFFF5F5F5),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
                 "Provider's Stats",
@@ -266,6 +267,7 @@ class _ProviderStatsCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.check_circle_outline,
                       size: 18, color: Colors.green),
@@ -278,11 +280,13 @@ class _ProviderStatsCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.star_border,
                       size: 18, color: Colors.amber),
                   const SizedBox(width: 6),
                   Text(
+                    textAlign: TextAlign.center,
                     avgRating == 0
                         ? 'No ratings yet'
                         : '${avgRating.toStringAsFixed(1)} ratings',
@@ -314,10 +318,11 @@ class _SkillsCard extends StatelessWidget {
     return _ShadowCard(
       bg: const Color(0xFFF5F5F5),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             title,
+            textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -325,11 +330,12 @@ class _SkillsCard extends StatelessWidget {
           const SizedBox(height: 8),
           if (skills.isEmpty)
             Text(
-              'No services added yet.',
+              'No skills added yet.',
               style: Theme.of(context).textTheme.bodyMedium,
             )
           else
             Wrap(
+              alignment: WrapAlignment.center,
               spacing: 8,
               runSpacing: 8,
               children: skills

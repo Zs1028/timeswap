@@ -90,13 +90,13 @@ class HomePage extends StatelessWidget {
 
       bottomNavigationBar: const _BottomNav(currentIndex: 0),
 
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFF39C50),
-        onPressed: () {
+      //floatingActionButton: FloatingActionButton(
+       // backgroundColor: const Color(0xFFF39C50),
+       // onPressed: () {
           // later: maybe open "Create request / offer" chooser
-        },
-        child: const Icon(Icons.add),
-      ),
+       // },
+       // child: const Icon(Icons.add),
+      //),
     );
   }
 }
@@ -133,17 +133,22 @@ class _Header extends StatelessWidget {
                 ),
           ),
           const Spacer(),
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: Colors.white,
-            child: ClipOval(
-              child: Image.asset(
-                'assets/images/profile.jpg',
-                fit: BoxFit.cover,
-                width: 36,
-                height: 36,
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.person, size: 22),
+            Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFF0F0F0), // light grey fill
+              border: Border.all(
+                color: const Color(0xFFBDBDBD), // grey border
+                width: 2,
+              ),
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.person,
+                size: 26,
+                color: Color(0xFF7A7A7A), // darker grey icon
               ),
             ),
           ),

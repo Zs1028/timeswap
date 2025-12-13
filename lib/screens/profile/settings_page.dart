@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../routes.dart';
+
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
@@ -24,48 +26,12 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.person_outline,
                 title: 'Update personal details',
                 onTap: () {
-                  // later: navigate to edit profile page
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profile settings coming soon'),
-                    ),
-                  );
+                  Navigator.pushNamed(context, AppRoutes.editProfile);
                 },
               ),
             ],
           ),
-          _SettingsSection(
-            title: 'Notifications',
-            tiles: [
-              _SettingsTile(
-                icon: Icons.notifications_none,
-                title: 'Manage account alerts',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Notification settings coming soon'),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
-          _SettingsSection(
-            title: 'Support',
-            tiles: [
-              _SettingsTile(
-                icon: Icons.help_outline,
-                title: 'Account help & support',
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Support page coming soon'),
-                    ),
-                  );
-                },
-              ),
-            ],
-          ),
+
           _SettingsSection(
             title: 'Security',
             tiles: [
@@ -73,11 +39,7 @@ class SettingsPage extends StatelessWidget {
                 icon: Icons.lock_outline,
                 title: 'Change password',
                 onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Password change coming soon'),
-                    ),
-                  );
+                  Navigator.pushNamed(context, AppRoutes.changePassword);
                 },
               ),
             ],

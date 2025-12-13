@@ -183,23 +183,6 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
 
                   _buildSkillsSection(),
 
-                  _label('Add your profile picture (optional)'),
-                  TextFormField(
-                    readOnly: true,
-                    decoration: _input('Tap to choose image').copyWith(
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.upload),
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Image picker coming soon'),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-
                   const SizedBox(height: 16),
                   SizedBox(
                     height: 50,

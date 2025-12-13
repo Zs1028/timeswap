@@ -68,7 +68,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
     {'label': '2 hours (2 credits)', 'value': 2.0},
     {'label': '3 hours (3 credits)', 'value': 3.0},
     {'label': '4 hours (4 credits)', 'value': 4.0},
-    {'label': '5+ hours (5+ credits)', 'value': 5.0},
+    {'label': '5 hours (5 credits)', 'value': 5.0},
   ];
 
   @override
@@ -489,6 +489,9 @@ class _AddRequestPageState extends State<AddRequestPage> {
           keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
+             hintStyle: TextStyle(
+              color: Colors.grey.shade400, // 👈 lighter placeholder
+              fontSize: 14,),
             filled: true,
             fillColor: Colors.white,
             isDense: true,

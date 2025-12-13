@@ -129,10 +129,26 @@ class _SignupPageState extends State<SignupPage> {
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.next,
                       decoration: _inputDecoration('Enter your phone'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Please enter your phone' : null,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) {
+                          return 'Please enter your phone number';
+                        }
+
+                        final phone = v.trim();
+
+                        if (!RegExp(r'^\d+$').hasMatch(phone)) {
+                          return 'Phone number must contain digits only';
+                        }
+
+                        if (phone.length < 10) {
+                          return 'Phone number must be at least 10 digits';
+                        }
+
+                        return null;
+                      },
                     ),
                   ),
+
                   _LabeledField(
                     label: 'Email',
                     child: TextFormField(

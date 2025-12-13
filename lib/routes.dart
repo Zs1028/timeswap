@@ -16,6 +16,8 @@ import 'screens/credits/transactions_history_page.dart';  // ⭐ add this
 import 'screens/profile/profile_page.dart';
 import 'screens/profile/settings_page.dart';
 import 'screens/applications/my_applications_page.dart';
+import 'screens/profile/edit_profile_page.dart';
+import 'screens/profile/change_password_page.dart';
 
 
 class AppRoutes {
@@ -34,6 +36,9 @@ class AppRoutes {
   static const profile = '/profile';
   static const settings = '/settings';
   static const myApplications = '/myApplications';
+  static const editProfile = '/edit-profile';
+  static const changePassword = '/change-password';
+
 
 
   static Route<dynamic> onGenerateRoute(RouteSettings settings) {
@@ -88,6 +93,12 @@ class AppRoutes {
 
       case AppRoutes.myApplications:
         return _buildRoute(const MyApplicationsPage(), requireAuth: true);
+      
+      case AppRoutes.editProfile:
+        return _buildRoute(const EditProfilePage(), requireAuth: true);
+
+      case AppRoutes.changePassword:
+        return _buildRoute(const ChangePasswordPage(), requireAuth: true);
 
       // Default → fallback
       default:
