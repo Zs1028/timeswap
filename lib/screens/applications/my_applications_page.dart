@@ -205,8 +205,23 @@ class _ApplicationCard extends StatelessWidget {
         // Compute UI status for this card
         final uiStatus = _computeUiStatus(application, service);
 
+        final displayStatus =
+        (statusFilter == 'accepted' && uiStatus == 'inprogress')
+            ? 'accepted'
+            : uiStatus;
+
         // Filter here – if not matching the current chip, hide this card
-        if (uiStatus != statusFilter) {
+        bool _matchesFilter(String uiStatus, String filter) {
+          // "Accepted" tab should include accepted + inprogress + completed
+          if (filter == 'accepted') {
+            return uiStatus == 'accepted' || uiStatus == 'inprogress';
+          }
+          // other tabs match exactly
+          return uiStatus == filter;
+        }
+
+        // ✅ IMPORTANT: apply the filter
+        if (!_matchesFilter(uiStatus, statusFilter)) {
           return const SizedBox.shrink();
         }
 
@@ -293,7 +308,7 @@ class _ApplicationCard extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      _statusChip(uiStatus),
+                      _statusChip(displayStatus),
                       const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -314,23 +329,28 @@ class _ApplicationCard extends StatelessWidget {
 
                       // Rate & Review – only when completed
                       if (uiStatus == 'completed') ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 18),
                         SizedBox(
-                          height: 30,
-                          child: TextButton(
-                            onPressed: () =>
-                                _openRatingDialog(context, service),
-                            style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFFF39C50),
-                              foregroundColor: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 10),
+                          height: 32,
+                          child: OutlinedButton(
+                            onPressed: () => _openRatingDialog(context, service),
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(
+                                color: Color(0xFFF39C50),
+                                width: 1.5,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
                             ),
                             child: const Text(
-                              'Rate & Review',
+                              'Rate',
                               style: TextStyle(
-                                fontSize: 11,
+                                color: Color(0xFFF39C50),
                                 fontWeight: FontWeight.w600,
+                                fontSize: 12,
                               ),
                             ),
                           ),
