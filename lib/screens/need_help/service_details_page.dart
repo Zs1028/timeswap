@@ -34,7 +34,7 @@ class ServiceDetailsPage extends StatelessWidget {
           '$creditsValue hour${credits == 1.0 ? '' : 's'} estimated';
     }
 
-    final timeCreditsText = '$creditsValue credits required';
+    final timeCreditsText = '$creditsValue credits';
 
     // ----- Button visibility & label -----
     final bool isMyService = service.requesterId == currentUserId;
@@ -121,7 +121,7 @@ class ServiceDetailsPage extends StatelessWidget {
             Text(
               'Service Title',
               style: TextStyle(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w300,
                 color: Colors.black.withOpacity(0.7),
               ),
             ),
@@ -138,7 +138,7 @@ class ServiceDetailsPage extends StatelessWidget {
             Text(
               'Description',
               style: TextStyle(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w300,
                 color: Colors.black.withOpacity(0.7),
               ),
             ),
@@ -146,8 +146,9 @@ class ServiceDetailsPage extends StatelessWidget {
             Text(
               description,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
+              style:  TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
                 color: Colors.black.withOpacity(0.7),
               ),
             ),
@@ -163,7 +164,7 @@ class ServiceDetailsPage extends StatelessWidget {
             const Text(
               'Time Credits Required',
               style: TextStyle(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w300,
               ),
             ),
             const SizedBox(height: 4),
@@ -186,147 +187,182 @@ class ServiceDetailsPage extends StatelessWidget {
 
   // ---------- Middle card: Provider info ----------
   Widget _providerInfoCard(BuildContext context) {
-    final providerId = service.providerId;
+  final isOffer = service.serviceType == 'offer';
 
-    return _roundedCard(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Provider Information',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black.withOpacity(0.85),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            CircleAvatar(
-              radius: 26,
-              backgroundColor: Colors.grey.shade300,
-              child: const Icon(Icons.person, size: 28, color: Colors.white),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              service.providerName.isEmpty ? 'TBA' : service.providerName,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-              ),
-            ),
-            const SizedBox(height: 12),
+  // Who are we showing in this card?
+  final userId = isOffer ? service.providerId : service.requesterId;
 
-            // Ratings pulled from "ratings" collection (same idea as Profile page)
-            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('ratings')
-                  .where('revieweeId', isEqualTo: providerId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                double avgRating = 0.0;
-                int reviewCount = 0;
+  final headerText = isOffer ? 'Provider Information' : 'Requester Information';
+  final buttonText = isOffer ? 'View Provider Profile' : 'View Requester Profile';
 
-                if (snapshot.hasData) {
-                  final docs = snapshot.data!.docs;
-                  reviewCount = docs.length;
-                  if (reviewCount > 0) {
-                    num total = 0;
-                    for (final d in docs) {
-                      final r = d.data()['rating'];
-                      if (r is int) {
-                        total += r;
-                      } else if (r is num) {
-                        total += r;
-                      }
-                    }
-                    avgRating = total / reviewCount;
-                  }
-                }
+  Widget nameWidget;
 
-                final ratingText = reviewCount == 0
-                    ? 'No ratings yet'
-                    : '${avgRating.toStringAsFixed(1)}/5';
-
-                final reviewsText = '$reviewCount review'
-                    '${reviewCount == 1 ? '' : 's'}';
-
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    Column(
-                      children: [
-                        const Text(
-                          'Overall Ratings',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          ratingText,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      children: [
-                        const Text(
-                          'Number of Reviews',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          reviewsText,
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
-            ),
-
-            const SizedBox(height: 14),
-            SizedBox(
-              width: 170,
-              height: 32,
-              child: ElevatedButton(
-                   onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ProviderProfilePage(
-                          providerId: service.providerId,
-                        ),
-                      ),
-                    );
-                  },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF52A8FF),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  padding: EdgeInsets.zero,
-                ),
-                child: const Text(
-                  'View Provider Profile',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                ),
-              ),
-            ),
-          ],
-        ),
+  if (isOffer) {
+    nameWidget = Text(
+      service.providerName.isEmpty ? 'Unknown' : service.providerName,
+      style: const TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: 14,
       ),
     );
+  } else {
+    nameWidget = StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('users').doc(userId).snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Text(
+            'Loading...',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+          );
+        }
+
+        final data = snap.data?.data();
+        final name = (data?['name'] ?? '') as String;
+
+        return Text(
+          name.isEmpty ? 'Unknown' : name,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        );
+      },
+    );
   }
+
+  return _roundedCard(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Column(
+        children: [
+          Center(
+            child: Text(
+              headerText,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Colors.black.withOpacity(0.85),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          CircleAvatar(
+            radius: 26,
+            backgroundColor: Colors.grey.shade300,
+            child: const Icon(Icons.person, size: 28, color: Colors.white),
+          ),
+          const SizedBox(height: 8),
+
+          // ✅ Name (provider name or fetched requester name)
+          nameWidget,
+
+          const SizedBox(height: 12),
+
+          // ✅ Ratings pulled from "ratings" collection
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('ratings')
+                .where('revieweeId', isEqualTo: userId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              double avgRating = 0.0;
+              int reviewCount = 0;
+
+              if (snapshot.hasData) {
+                final docs = snapshot.data!.docs;
+                reviewCount = docs.length;
+                if (reviewCount > 0) {
+                  num total = 0;
+                  for (final d in docs) {
+                    final r = d.data()['rating'];
+                    if (r is int) {
+                      total += r;
+                    } else if (r is num) {
+                      total += r;
+                    }
+                  }
+                  avgRating = total / reviewCount;
+                }
+              }
+
+              final ratingText =
+                  reviewCount == 0 ? 'No ratings yet' : '${avgRating.toStringAsFixed(1)}/5';
+
+              final reviewsText = '$reviewCount review${reviewCount == 1 ? '' : 's'}';
+
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Column(
+                    children: [
+                      const Text(
+                        'Overall Ratings',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        ratingText,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                  Column(
+                    children: [
+                      const Text(
+                        'Number of Reviews',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        reviewsText,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 14),
+          SizedBox(
+            width: 170,
+            height: 32,
+            child: ElevatedButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => ProviderProfilePage(providerId: userId),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF52A8FF),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                padding: EdgeInsets.zero,
+              ),
+              child: Text(
+                buttonText,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 
   // ---------- Bottom card: Availability & Location ----------
   Widget _availabilityCard() {
@@ -345,9 +381,10 @@ class ServiceDetailsPage extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
+              textAlign: TextAlign.center,
               'Availability & Location',
               style: TextStyle(
                 fontWeight: FontWeight.w700,
@@ -660,15 +697,15 @@ void _showConfirmDialog(BuildContext context, bool isOfferListing) {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w300,
           ),
         ),
         const SizedBox(height: 4),
         Text(
           value,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 12),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, // ✅ same weight
+          ),
         ),
       ],
     );
