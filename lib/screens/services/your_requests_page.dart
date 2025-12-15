@@ -8,6 +8,8 @@ import '../need_help/service_details_page.dart';
 import 'service_applications_page.dart';
 import 'edit_service_page.dart'; // 👈 NEW
 import '../../services/credit_service.dart';
+import '../profile/provider_profile_page.dart'; // adjust to your actual path
+
 
 class YourRequestsPage extends StatelessWidget {
   /// 0 = Services You Offered tab, 1 = Services You Requested tab
@@ -326,6 +328,24 @@ Widget build(BuildContext context) {
   final user = FirebaseAuth.instance.currentUser;
   final uid = user?.uid;
 
+  final serviceStatus = service.serviceStatus.toLowerCase();
+
+  final bool showViewParticipant =
+    serviceStatus == 'inprogress' &&
+    service.helperId.isNotEmpty &&
+    service.helpeeId.isNotEmpty;
+
+   String? participantId;
+    if (showViewParticipant && uid != null) {
+      if (uid == service.helperId) {
+        participantId = service.helpeeId;
+      } else if (uid == service.helpeeId) {
+        participantId = service.helperId;
+      } else {
+        participantId = null;
+      }
+    } 
+
   // show "Me" if this service belongs to current user
   final displayName =
       (uid != null && service.providerId == uid) ? 'Me' : service.providerName;
@@ -415,6 +435,85 @@ Widget build(BuildContext context) {
                       Icons.hourglass_bottom,
                       '${service.creditsPerHour} credits',
                     ),
+                    if (showViewParticipant || showMarkCompleted) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (showViewParticipant)
+                          Flexible(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minWidth: 130),
+                              child: SizedBox(
+                                height: 40,
+                                child: OutlinedButton(
+                                  onPressed: () {
+                                    if (participantId == null) return;
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            ProviderProfilePage(providerId: participantId!),
+                                      ),
+                                    );
+                                  },
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    side: BorderSide(color: Colors.black.withOpacity(0.35)),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'View participant',
+                                    style: TextStyle(
+                                      fontSize: 11, // ✅ normal readable size
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        if (showViewParticipant && showMarkCompleted)
+                          const SizedBox(width: 12),
+
+                        if (showMarkCompleted)
+                          Flexible(
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minWidth: 150),
+                              child: SizedBox(
+                                height: 40,
+                                child: OutlinedButton(
+                                  onPressed: () => _markAsCompleted(context),
+                                  style: OutlinedButton.styleFrom(
+                                    backgroundColor: Colors.white,
+                                    side: const BorderSide(
+                                      color: Color(0xFF7ED9A2),
+                                      width: 1.5,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Mark as completed',
+                                    style: TextStyle(
+                                      fontSize: 11, // ✅ same readable size
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF7ED9A2),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  ],
+
                     // ✅ ACTIONS BELOW credits (only OPEN)
                     if (canModify) ...[
                       const SizedBox(height: 10),
@@ -531,46 +630,31 @@ Widget build(BuildContext context) {
                     ),
                   ],
 
-                  // Mark as completed (only when in progress)
-                  if (showMarkCompleted) ...[
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 30,
-                      child: TextButton(
-                        onPressed: () => _markAsCompleted(context),
-                        style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFF7ED9A2),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                        ),
-                        child: const Text(
-                          'Mark as completed',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
 
                   // ⭐ Rate & Review (helper or helpee, after completion)
                   if (showRateReview) ...[
                     const SizedBox(height: 8),
                     SizedBox(
                       height: 30,
-                      child: TextButton(
+                      child: OutlinedButton(
                         onPressed: () => _openRatingDialog(context),
-                        style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFFF39C50),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Colors.white, // ✅ white fill
+                          side: const BorderSide(
+                            color: Color(0xFFF39C50), // ✅ orange border
+                            width: 1.2,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                         ),
                         child: const Text(
-                          'Rate & Review',
+                          'Rate',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
+                            color: Color(0xFFF39C50), // ✅ orange text
                           ),
                         ),
                       ),

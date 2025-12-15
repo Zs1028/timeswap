@@ -284,11 +284,6 @@ class _ApplicationCard extends StatelessWidget {
       };
 
       // For "need" posts, we also want to show helper info (provider)
-      if (!isOffer) {
-        updates['providerId'] = helperId;
-        updates['providerName'] = application.requesterName;
-      }
-
       batch.update(serviceRef, updates);
 
       await batch.commit();
