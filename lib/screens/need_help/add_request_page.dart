@@ -14,9 +14,11 @@ class _AddRequestPageState extends State<AddRequestPage> {
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _dateController = TextEditingController(); // e.g. 27/7/2025
+  final _startDateController = TextEditingController();
+  final _endDateController = TextEditingController();
   final _fromTimeController = TextEditingController(); // e.g. 4:00 PM
   final _toTimeController = TextEditingController(); // e.g. 6:00 PM
+ 
 
   // optional flexible timing note
   final _flexibleNotesController = TextEditingController();
@@ -63,19 +65,23 @@ class _AddRequestPageState extends State<AddRequestPage> {
 
   // Time credits required options
   final List<Map<String, dynamic>> _creditOptions = const [
-    {'label': '1 hour (1 credit)', 'value': 1.0},
-    {'label': '1.5 hours (1.5 credits)', 'value': 1.5},
-    {'label': '2 hours (2 credits)', 'value': 2.0},
-    {'label': '3 hours (3 credits)', 'value': 3.0},
-    {'label': '4 hours (4 credits)', 'value': 4.0},
-    {'label': '5 hours (5 credits)', 'value': 5.0},
+    {'label': '1 credit', 'value': 1.0},
+    {'label': '1.5 credits', 'value': 1.5},
+    {'label': '2 credits', 'value': 2.0},
+    {'label': '2.5 credits', 'value': 2.5},
+    {'label': '3 credits', 'value': 3.0},
+    {'label': '3.5 credits', 'value': 3.5},
+    {'label': '4 credits', 'value': 4.0},
+    {'label': '4.5 credits', 'value': 4.5},
+    {'label': '5 credits', 'value': 5.0},
   ];
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _dateController.dispose();
+    _startDateController.dispose();
+    _endDateController.dispose();
     _fromTimeController.dispose();
     _toTimeController.dispose();
     _flexibleNotesController.dispose();
@@ -84,21 +90,21 @@ class _AddRequestPageState extends State<AddRequestPage> {
   }
 
   // ---------- DATE & TIME PICKERS (same behaviour as AddOfferingPage) ----------
+  Future<void> _pickDate(TextEditingController controller) async {
+  final now = DateTime.now();
+  final picked = await showDatePicker(
+    context: context,
+    initialDate: now,
+    firstDate: now,
+    lastDate: now.add(const Duration(days: 365)),
+  );
 
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      _dateController.text =
-          '${picked.day}/${picked.month}/${picked.year}';
-      setState(() {});
-    }
+  if (picked != null) {
+    controller.text =
+        '${picked.day}/${picked.month}/${picked.year}';
+    setState(() {});
   }
+}
 
   Future<void> _pickTime(TextEditingController controller) async {
     final picked =
@@ -111,112 +117,148 @@ class _AddRequestPageState extends State<AddRequestPage> {
 
   // --------------- SUBMIT LOGIC ---------------
 
-  Future<void> _submit() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in first.')),
-      );
-      return;
-    }
+   Future<void> _submit() async {
+  // 1️⃣ Get logged-in user
+  final user = FirebaseAuth.instance.currentUser;
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please log in first.')),
+    );
+    return;
+  }
 
-    final String currentUserId = user.uid;
+  // 2️⃣ Validate basic fields (title/description/category/state/credits validators)
+  if (!_formKey.currentState!.validate()) return;
 
-    // ⭐ NEW: try to use profile name from `users` collection
-    String currentUserName;
+  final String currentUserId = user.uid;
 
-    try {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(currentUserId)
-          .get();
-      final data = userDoc.data();
-      final profileName = (data?['name'] as String?)?.trim();
+  // Fetch display name from `users` collection (fallback to auth data)
+  final userDoc = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(currentUserId)
+      .get();
 
-      if (profileName != null && profileName.isNotEmpty) {
-        currentUserName = profileName;
-      } else if ((user.displayName ?? '').trim().isNotEmpty) {
-        currentUserName = user.displayName!.trim();
-      } else {
-        currentUserName = user.email ?? 'TimeSwap User';
-      }
-    } catch (_) {
-      // if anything fails, fall back to email
-      currentUserName = user.email ?? 'TimeSwap User';
-    }
+  final String providerName =
+      (userDoc.data()?['name'] as String?) ??
+      user.displayName ??
+      user.email ??
+      'TimeSwap User';
 
-    final title = _titleController.text.trim();
-    final description = _descriptionController.text.trim();
-    final date = _dateController.text.trim();
-    final from = _fromTimeController.text.trim();
-    final to = _toTimeController.text.trim();
-    final flexibleNotes = _flexibleNotesController.text.trim();
-    final locationDetails = _locationDetailsController.text.trim();
+  final title = _titleController.text.trim();
+  final description = _descriptionController.text.trim();
 
-    if (title.isEmpty ||
-        description.isEmpty ||
-        date.isEmpty ||
-        from.isEmpty ||
-        to.isEmpty ||
-        _selectedCategory == null ||
-        _selectedState == null ||
-        _selectedCredits == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields.')),
-      );
-      return;
-    }
+  // Optional availability window
+  final startDate = _startDateController.text.trim();
+  final endDate = _endDateController.text.trim();
+  final from = _fromTimeController.text.trim();
+  final to = _toTimeController.text.trim();
+  final flexibleNotes = _flexibleNotesController.text.trim();
 
-    final String state = _selectedState!;
-    final double creditsRequired = _selectedCredits!;
+  final category = _selectedCategory ?? '';
+  final state = _selectedState ?? '';
+  final locationDetails = _locationDetailsController.text.trim();
+  final creditsRequired = _selectedCredits;
 
-    // For main "location" field, combine state + details if provided
-    final String location =
-        locationDetails.isEmpty ? state : '$state - $locationDetails';
+  // ✅ Required fields only (availability is optional)
+  if (title.isEmpty ||
+      description.isEmpty ||
+      category.isEmpty ||
+      state.isEmpty ||
+      creditsRequired == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill in all required fields.')),
+    );
+    return;
+  }
 
-    final availableTiming = '$date, $from - $to';
+  // ✅ Optional: enforce pairs (avoid half-filled ranges)
+  if ((startDate.isNotEmpty && endDate.isEmpty) ||
+      (startDate.isEmpty && endDate.isNotEmpty)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select both Start Date and End Date (or leave both empty).')),
+    );
+    return;
+  }
 
-    setState(() => _isSubmitting = true);
+  if ((from.isNotEmpty && to.isEmpty) || (from.isEmpty && to.isNotEmpty)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select both From and To time (or leave both empty).')),
+    );
+    return;
+  }
 
-    try {
-      await FirebaseFirestore.instance.collection('services').add({
-        'serviceTitle': title,
-        'serviceDescription': description,
-        'category': _selectedCategory,
-        'location': location,
-        'locationState': state,
-        'locationDetails': locationDetails,
-        'availableTiming': availableTiming,
-        'flexibleNotes': flexibleNotes,
-        'creditsPerHour': creditsRequired, // double
-        'serviceStatus': 'open',
+  // Build location string (state + optional details)
+  final location = [
+    state,
+    if (locationDetails.isNotEmpty) locationDetails,
+  ].join(' - ');
 
-        // The person who needs help
-        'requesterId': currentUserId,
-        // For "need help", requester also owns the listing
-        'providerId': currentUserId,
-        'providerName': currentUserName,
+  // ✅ Build availableTiming (optional, user-friendly)
+  String availableTiming = '';
 
-        'serviceType': 'need',
-        'createdDate': FieldValue.serverTimestamp(),
-      });
+  if (startDate.isNotEmpty && endDate.isNotEmpty) {
+    availableTiming = '$startDate – $endDate';
+  }
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request created successfully.')),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create request: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+  if (from.isNotEmpty && to.isNotEmpty) {
+    final timePart = '$from – $to';
+    availableTiming = availableTiming.isEmpty ? timePart : '$availableTiming, $timePart';
+  }
+
+  if (flexibleNotes.isNotEmpty) {
+    availableTiming = availableTiming.isEmpty
+        ? flexibleNotes
+        : '$availableTiming • $flexibleNotes';
+  }
+
+  setState(() => _isSubmitting = true);
+
+  try {
+    await FirebaseFirestore.instance.collection('services').add({
+      'serviceTitle': title,
+      'serviceDescription': description,
+      'category': category,
+      'location': location,
+      'state': state,
+      'locationDetails': locationDetails,
+
+      // Availability (can be empty string if user left it blank)
+      'availableTiming': availableTiming,
+      'flexibleNotes': flexibleNotes,
+
+      // keep same field name so existing UI still works
+      'creditsPerHour': creditsRequired,
+
+      'serviceStatus': 'open',
+
+      // ⭐ OFFER HELP LOGIC
+      'providerId': currentUserId,
+      'providerName': providerName,
+
+      // requester stays same logic as before (your current design)
+      'requesterId': currentUserId,
+
+      'serviceType': 'need',
+      'createdDate': FieldValue.serverTimestamp(),
+    });
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Offering created successfully.')),
+    );
+    Navigator.of(context).pop();
+  } catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Failed to create offering: $e')),
+    );
+  } finally {
+    if (mounted) {
+      setState(() => _isSubmitting = false);
     }
   }
+}
+
 
   // --------------- UI ---------------
 
@@ -267,7 +309,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Date & Time *',
+                          'Avalability Window (Optional)',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.black.withOpacity(0.8),
@@ -275,17 +317,47 @@ class _AddRequestPageState extends State<AddRequestPage> {
                         ),
                       ),
                       const SizedBox(height: 6),
-
-                      // Date picker (tap to open calendar)
-                      GestureDetector(
-                        onTap: _pickDate,
-                        child: AbsorbPointer(
-                          child: _buildTextField(
-                            label: 'Date',
-                            controller: _dateController,
-                            hint: '27/7/2025',
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Availability is flexible and can be discussed after matching.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54, // grey
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                      // Date picker (tap to open calendar)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _pickDate(_startDateController),
+                              child: AbsorbPointer(
+                                child: _buildTextField(
+                                  label: 'Start Date',
+                                  controller: _startDateController,
+                                  hint: 'e.g. 27/7/2025',
+                                  // ❌ no validator → optional
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _pickDate(_endDateController),
+                              child: AbsorbPointer(
+                                child: _buildTextField(
+                                  label: 'End Date',
+                                  controller: _endDateController,
+                                  hint: 'e.g. 30/7/2025',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
 
@@ -386,6 +458,18 @@ class _AddRequestPageState extends State<AddRequestPage> {
                         ),
                       ),
                       const SizedBox(height: 4),
+                      Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Time credits represent the effort required for this service.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54, // grey
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+
                       DropdownButtonFormField<double>(
                         value: _selectedCredits,
                         decoration: InputDecoration(
@@ -414,9 +498,9 @@ class _AddRequestPageState extends State<AddRequestPage> {
                               ),
                             )
                             .toList(),
-                        onChanged: (val) {
-                          setState(() => _selectedCredits = val);
-                        },
+                        onChanged: (val) => setState(() => _selectedCredits = val),
+                        validator: (v) => v == null ? 'Please select time credits' : null,
+                        
                       ),
 
                       const SizedBox(height: 80), // space above button

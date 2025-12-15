@@ -14,9 +14,11 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _dateController = TextEditingController();
+  final _startDateController = TextEditingController();
+  final _endDateController = TextEditingController();
   final _fromTimeController = TextEditingController();
   final _toTimeController = TextEditingController();
+  
 
   // location details (optional)
   final _locationDetailsController = TextEditingController();
@@ -67,8 +69,11 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     1.0,
     1.5,
     2.0,
+    2.5,
     3.0,
+    3.5,
     4.0,
+    4.5,
     5.0,
   ];
 
@@ -76,7 +81,8 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _dateController.dispose();
+    _startDateController.dispose();
+    _endDateController.dispose();
     _fromTimeController.dispose();
     _toTimeController.dispose();
     _locationDetailsController.dispose();
@@ -84,20 +90,22 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      _dateController.text =
-          '${picked.day}/${picked.month}/${picked.year}';
-      setState(() {});
-    }
+  Future<void> _pickDate(TextEditingController controller) async {
+  final now = DateTime.now();
+  final picked = await showDatePicker(
+    context: context,
+    initialDate: now,
+    firstDate: now,
+    lastDate: now.add(const Duration(days: 365)),
+  );
+
+  if (picked != null) {
+    controller.text =
+        '${picked.day}/${picked.month}/${picked.year}';
+    setState(() {});
   }
+}
+
 
   Future<void> _pickTime(TextEditingController controller) async {
     final picked =
@@ -118,12 +126,12 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     return;
   }
 
-  // 2️⃣ Validate basic fields
+  // 2️⃣ Validate basic fields (title/description/category/state/credits validators)
   if (!_formKey.currentState!.validate()) return;
 
   final String currentUserId = user.uid;
 
-  // 🔹 NEW: fetch display name from `users` collection (fallback to email)
+  // Fetch display name from `users` collection (fallback to auth data)
   final userDoc = await FirebaseFirestore.instance
       .collection('users')
       .doc(currentUserId)
@@ -137,21 +145,22 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
 
   final title = _titleController.text.trim();
   final description = _descriptionController.text.trim();
-  final date = _dateController.text.trim();
+
+  // Optional availability window
+  final startDate = _startDateController.text.trim();
+  final endDate = _endDateController.text.trim();
   final from = _fromTimeController.text.trim();
   final to = _toTimeController.text.trim();
+  final flexibleNotes = _flexibleNotesController.text.trim();
+
   final category = _selectedCategory ?? '';
   final state = _selectedState ?? '';
   final locationDetails = _locationDetailsController.text.trim();
-  final flexibleNotes = _flexibleNotesController.text.trim();
   final creditsRequired = _selectedCreditsRequired;
 
-  // extra safety (should already be covered by validators)
+  // ✅ Required fields only (availability is optional)
   if (title.isEmpty ||
       description.isEmpty ||
-      date.isEmpty ||
-      from.isEmpty ||
-      to.isEmpty ||
       category.isEmpty ||
       state.isEmpty ||
       creditsRequired == null) {
@@ -161,13 +170,45 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     return;
   }
 
-  // build location string (state + optional details)
+  // ✅ Optional: enforce pairs (avoid half-filled ranges)
+  if ((startDate.isNotEmpty && endDate.isEmpty) ||
+      (startDate.isEmpty && endDate.isNotEmpty)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select both Start Date and End Date (or leave both empty).')),
+    );
+    return;
+  }
+
+  if ((from.isNotEmpty && to.isEmpty) || (from.isEmpty && to.isNotEmpty)) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select both From and To time (or leave both empty).')),
+    );
+    return;
+  }
+
+  // Build location string (state + optional details)
   final location = [
     state,
     if (locationDetails.isNotEmpty) locationDetails,
   ].join(' - ');
 
-  final availableTiming = '$date, $from - $to';
+  // ✅ Build availableTiming (optional, user-friendly)
+  String availableTiming = '';
+
+  if (startDate.isNotEmpty && endDate.isNotEmpty) {
+    availableTiming = '$startDate – $endDate';
+  }
+
+  if (from.isNotEmpty && to.isNotEmpty) {
+    final timePart = '$from – $to';
+    availableTiming = availableTiming.isEmpty ? timePart : '$availableTiming, $timePart';
+  }
+
+  if (flexibleNotes.isNotEmpty) {
+    availableTiming = availableTiming.isEmpty
+        ? flexibleNotes
+        : '$availableTiming • $flexibleNotes';
+  }
 
   setState(() => _isSubmitting = true);
 
@@ -179,18 +220,23 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
       'location': location,
       'state': state,
       'locationDetails': locationDetails,
+
+      // Availability (can be empty string if user left it blank)
       'availableTiming': availableTiming,
       'flexibleNotes': flexibleNotes,
+
       // keep same field name so existing UI still works
       'creditsPerHour': creditsRequired,
+
       'serviceStatus': 'open',
 
       // ⭐ OFFER HELP LOGIC
       'providerId': currentUserId,
-      'providerName': providerName, // ← use name now
+      'providerName': providerName,
 
-      // requester stays same logic as before
+      // requester stays same logic as before (your current design)
       'requesterId': currentUserId,
+
       'serviceType': 'offer',
       'createdDate': FieldValue.serverTimestamp(),
     });
@@ -268,7 +314,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Available Date & Time *',
+                          'Availability Window (Optional)',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.black.withOpacity(0.8),
@@ -276,21 +322,47 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                         ),
                       ),
                       const SizedBox(height: 6),
-
-                      // Date picker
-                      GestureDetector(
-                        onTap: _pickDate,
-                        child: AbsorbPointer(
-                          child: _buildTextField(
-                            label: 'Date',
-                            controller: _dateController,
-                            hint: '27/7/2025',
-                            validator: (v) =>
-                                (v == null || v.trim().isEmpty)
-                                    ? 'Please select a date'
-                                    : null,
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Availability is flexible and can be discussed after matching.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.black54, // grey
+                            ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                      // Date picker
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _pickDate(_startDateController),
+                              child: AbsorbPointer(
+                                child: _buildTextField(
+                                  label: 'Start Date',
+                                  controller: _startDateController,
+                                  hint: 'e.g. 27/7/2025',
+                                  // ❌ no validator → optional
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _pickDate(_endDateController),
+                              child: AbsorbPointer(
+                                child: _buildTextField(
+                                  label: 'End Date',
+                                  controller: _endDateController,
+                                  hint: 'e.g. 30/7/2025',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
 
@@ -305,10 +377,6 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                                   label: 'From',
                                   controller: _fromTimeController,
                                   hint: '4:00 PM',
-                                  validator: (v) =>
-                                      (v == null || v.trim().isEmpty)
-                                          ? 'Select a start time'
-                                          : null,
                                 ),
                               ),
                             ),
@@ -322,10 +390,6 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                                   label: 'To',
                                   controller: _toTimeController,
                                   hint: '6:00 PM',
-                                  validator: (v) =>
-                                      (v == null || v.trim().isEmpty)
-                                          ? 'Select an end time'
-                                          : null,
                                 ),
                               ),
                             ),
@@ -389,17 +453,17 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      //Align(
-                      //  alignment: Alignment.centerLeft,
-                      //  child: Text(
-                       //   'Standard rate: 1 credit = 1 hour',
-                       //   style: TextStyle(
-                       //     fontSize: 12,
-                       //     color: Colors.black.withOpacity(0.6),
-                       //   ),
-                      //  ),
-                    //  ),
-                     // const SizedBox(height: 6),//
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Time credits represent the effort required for this service.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54, // grey
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
 
                       DropdownButtonFormField<double>(
                         value: _selectedCreditsRequired,
@@ -425,11 +489,11 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                         items: _creditOptions.map((c) {
                           String label;
                           if (c == 1.0) {
-                            label = '1 hour (1 credit)';
+                            label = '1 credit';
                           } else if (c == 5.0) {
-                            label = '5 hours (5 credits)';
+                            label = '5 credits';
                           } else {
-                            label = '${c.toString()} hours (${c.toString()} credits)';
+                            label = '${c.toString()} credits';
                           }
                           return DropdownMenuItem<double>(
                             value: c,
