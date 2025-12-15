@@ -56,7 +56,7 @@ class _ServicesPageState extends State<ServicesPage> {
           backgroundColor: const Color(0xFFFFF4D1),
           elevation: 0,
           title: const Text(
-            'Services',
+            'Explore Services',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           centerTitle: true,
@@ -64,6 +64,21 @@ class _ServicesPageState extends State<ServicesPage> {
         body: SafeArea(
           child: Column(
             children: [
+              const SizedBox(height: 8),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  child: Text(
+                    'Browse what others are offering or requesting',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF8A8A8A),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
               const SizedBox(height: 8),
               _headerTabs(),
               _searchAndFilterRow(context),

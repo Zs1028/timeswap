@@ -52,19 +52,42 @@ class _MyApplicationsPageState extends State<MyApplicationsPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFADF8E),
-        elevation: 0,
-        title: const Text(
-          'Services you applied',
-          style: TextStyle(fontWeight: FontWeight.w600),
+  backgroundColor: const Color(0xFFFADF8E),
+  elevation: 0,
+  centerTitle: true,
+  automaticallyImplyLeading: false,
+
+  title: const Text(
+    'My Applications',
+    style: TextStyle(fontWeight: FontWeight.w600),
+  ),
+
+  // ✅ Subtitle INSIDE AppBar
+  bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(28),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Center(
+              child: Text(
+                'Services you have applied for',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Color(0xFF8A8A8A),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ),
         ),
-        centerTitle: true,
-        automaticallyImplyLeading: false,
       ),
+
       body: SafeArea(
         child: Column(
           children: [
             const SizedBox(height: 8),
+            
+             const SizedBox(height: 10),
             _buildStatusChips(),
             Expanded(
               child: StreamBuilder<QuerySnapshot<ServiceApplication>>(

@@ -73,7 +73,7 @@ class YourRequestsPage extends StatelessWidget {
           backgroundColor: const Color(0xFFFFF4D1),
           elevation: 0,
           title: const Text(
-            'Your Request',
+            'My services',
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           centerTitle: true,
@@ -82,6 +82,23 @@ class YourRequestsPage extends StatelessWidget {
           child: Column(
             children: [
               const SizedBox(height: 8),
+               // ✅ Grey subtitle
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  child: Text(
+                    'Create services and manage people who apply',
+                     textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 10),
               _headerTabs(),
               Expanded(
                 child: TabBarView(
@@ -133,8 +150,8 @@ class YourRequestsPage extends StatelessWidget {
           unselectedLabelColor: Colors.black54,
           indicator: _RoundedUnderlineIndicator(),
           tabs: [
-            Text('Services You Offered'),
-            Text('Services You Requested'),
+            Text('Services I Offered'),
+            Text('Services I Requested'),
           ],
         ),
       ),
