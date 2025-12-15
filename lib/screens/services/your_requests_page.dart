@@ -319,290 +319,273 @@ class _ServiceCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final bool showMarkCompleted =
-        service.serviceStatus.toLowerCase() == 'inprogress';
-    final bool showViewApplications =
-        service.serviceStatus.toLowerCase() == 'open';
+Widget build(BuildContext context) {
+  final bool showMarkCompleted =
+      service.serviceStatus.toLowerCase() == 'inprogress';
 
-    final user = FirebaseAuth.instance.currentUser;
-    final uid = user?.uid;
+  final user = FirebaseAuth.instance.currentUser;
+  final uid = user?.uid;
 
-    final bool isCompleted =
-        service.serviceStatus.toLowerCase() == 'completed';
+  // show "Me" if this service belongs to current user
+  final displayName =
+      (uid != null && service.providerId == uid) ? 'Me' : service.providerName;
 
-    final bool isHelper = uid != null && service.helperId == uid;
-    final bool isHelpee = uid != null && service.helpeeId == uid;
+  final bool isCompleted = service.serviceStatus.toLowerCase() == 'completed';
 
-    // ⭐ Both helper and helpee can rate after completion
-    final bool showRateReview = isCompleted && (isHelper || isHelpee);
+  final bool isHelper = uid != null && service.helperId == uid;
+  final bool isHelpee = uid != null && service.helpeeId == uid;
 
-    // ✅ NEW: can modify only when status = open
-    final bool canModify =
-        service.serviceStatus.toLowerCase() == 'open';
+  // ⭐ Both helper and helpee can rate after completion
+  final bool showRateReview = isCompleted && (isHelper || isHelpee);
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x22000000),
-              blurRadius: 8,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ServiceDetailsPage(
-                  service: service,
-                  showRequestButton: false,
-                ),
+  // ✅ can modify only when status = open
+  final bool canModify = service.serviceStatus.toLowerCase() == 'open';
+
+  return Material(
+    color: Colors.transparent,
+    child: Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 8,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ServiceDetailsPage(
+                service: service,
+                showRequestButton: false,
               ),
-            );
-          },
-          child: Padding(
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // LEFT COLUMN
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      RichText(
-                        text: TextSpan(
-                          text: titlePrefix,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(
-                                color: Colors.blue.shade700,
-                                fontWeight: FontWeight.w700,
-                              ),
-                          children: [
-                            TextSpan(
-                              text: service.serviceTitle,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    color: Colors.black87,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _iconText(Icons.person_outline, service.providerName),
-                      const SizedBox(height: 2),
-                      _iconText(Icons.place_outlined, service.location),
-                      const SizedBox(height: 2),
-                      _iconText(Icons.access_time, service.availableTiming),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-
-                // RIGHT COLUMN
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // LEFT COLUMN
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: _statusBg(service.serviceStatus),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        service.serviceStatus,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        service.category,
-                        style: const TextStyle(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.hourglass_empty, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${service.creditsPerHour} credits',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 12,
+                    RichText(
+                      text: TextSpan(
+                        text: titlePrefix,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.blue.shade700,
+                              fontWeight: FontWeight.w700,
                             ),
+                        children: [
+                          TextSpan(
+                            text: service.serviceTitle,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                         ],
                       ),
                     ),
-
-                    // View Applications (only when open)
-                    if (showViewApplications) ...[
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 32,
-                        child: TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    ServiceApplicationsPage(service: service),
-                              ),
-                            );
-                          },
-                          style: TextButton.styleFrom(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
-                            backgroundColor: const Color(0xFFFFE5E2),
-                            foregroundColor: const Color(0xFFD32F2F),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: const [
-                              Icon(Icons.people_alt_outlined, size: 14),
-                              SizedBox(width: 4),
-                              Text(
-                                'View applications',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // Mark as completed (only when in progress)
-                    if (showMarkCompleted) ...[
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 30,
-                        child: TextButton(
-                          onPressed: () => _markAsCompleted(context),
-                          style: TextButton.styleFrom(
-                            backgroundColor: const Color(0xFF7ED9A2),
-                            foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 10),
-                          ),
-                          child: const Text(
-                            'Mark as completed',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // ⭐ Rate & Review (helper or helpee, after completion)
-                    if (showRateReview) ...[
-                      const SizedBox(height: 8),
-                      SizedBox(
-                        height: 30,
-                        child: TextButton(
-                          onPressed: () => _openRatingDialog(context),
-                          style: TextButton.styleFrom(
-                            backgroundColor: const Color(0xFFF39C50),
-                            foregroundColor: Colors.white,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 10),
-                          ),
-                          child: const Text(
-                            'Rate & Review',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    // ✏️ Edit / 🗑 Delete icons  → only when status is OPEN
-                    if (canModify) ...[
                     const SizedBox(height: 8),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _circleIconButton(
-                          icon: Icons.edit,
-                          tooltip: 'Edit service',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => EditServicePage(
-                                  service: service,
-                                  isOfferedTab: isOfferedTab,
+
+                    // ✅ show "Me"
+                    _iconText(Icons.person_outline, displayName),
+
+                    const SizedBox(height: 2),
+                    _iconText(Icons.place_outlined, service.location),
+                    const SizedBox(height: 2),
+                    _iconText(Icons.access_time, service.availableTiming),
+
+                    // ✅ credits stay LEFT under time
+                    const SizedBox(height: 2),
+                    _iconText(
+                      Icons.hourglass_bottom,
+                      '${service.creditsPerHour} credits',
+                    ),
+                    // ✅ ACTIONS BELOW credits (only OPEN)
+                    if (canModify) ...[
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _circleIconButton(
+                            icon: Icons.edit,
+                            tooltip: 'Edit service',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditServicePage(
+                                    service: service,
+                                    isOfferedTab: isOfferedTab,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        _circleIconButton(
-                          icon: Icons.delete_outline,
-                          tooltip: 'Delete service',
-                          iconColor: Colors.red,
-                          onTap: () => _confirmDeleteService(context),
-                        ),
-                      ],
-                     ),
-                    ]
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          _circleIconButton(
+                            icon: Icons.delete_outline,
+                            tooltip: 'Delete service',
+                            iconColor: Colors.red,
+                            onTap: () => _confirmDeleteService(context),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+
+              // RIGHT COLUMN
+             Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _statusBg(service.serviceStatus),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      service.serviceStatus,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      service.category,
+                      style: const TextStyle(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+
+                  // ✅ View Application button on right (only when OPEN)
+                  if (canModify) ...[
+                    const SizedBox(height: 10),
+                    StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: FirebaseFirestore.instance
+                          .collection('serviceRequests')
+                          .where('serviceId', isEqualTo: service.id)
+                          .snapshots(),
+                      builder: (context, snap) {
+                        final count = snap.data?.docs.length ?? 0;
+
+                        return SizedBox(
+                          height: 32, 
+                          child: OutlinedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ServiceApplicationsPage(service: service),
+                                ),
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              side: const BorderSide(color: Color(0xFFF39C50), width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                            ),
+                            child: Text(
+                              'View Application ($count)',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFFF39C50),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+
+                  // Mark as completed (only when in progress)
+                  if (showMarkCompleted) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 30,
+                      child: TextButton(
+                        onPressed: () => _markAsCompleted(context),
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFF7ED9A2),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                        ),
+                        child: const Text(
+                          'Mark as completed',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  // ⭐ Rate & Review (helper or helpee, after completion)
+                  if (showRateReview) ...[
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      height: 30,
+                      child: TextButton(
+                        onPressed: () => _openRatingDialog(context),
+                        style: TextButton.styleFrom(
+                          backgroundColor: const Color(0xFFF39C50),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                        ),
+                        child: const Text(
+                          'Rate & Review',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
+
 
   // --- Small circular icon button used for edit/delete ---
   static Widget _circleIconButton({
