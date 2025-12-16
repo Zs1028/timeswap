@@ -284,13 +284,16 @@ class _MyServicesTabState extends State<_MyServicesTab> {
   Widget _statusChips() {
     Widget buildChip(String label, String value) {
       final bool selected = _statusFilter == value;
-      return ChoiceChip(
-        label: Text(label),
-        selected: selected,
-        onSelected: (_) {
-          setState(() => _statusFilter = value);
-        },
-        selectedColor: const Color(0xFFF39C50),
+        return SizedBox(
+        width: 120, // ✅ fixed width for all chips
+        child: ChoiceChip(
+          label: Text(label),
+          selected: selected,
+          onSelected: (_) {
+            setState(() => _statusFilter = value);
+          },
+          selectedColor: const Color(0xFFF39C50),
+        ),
       );
     }
 

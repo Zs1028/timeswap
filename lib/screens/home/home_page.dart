@@ -252,7 +252,7 @@ class _ActivitySummaryCard extends StatelessWidget {
       final appsInProgressSnap = await fs
           .collection('serviceRequests')
           .where('requesterId', isEqualTo: uid)
-          .where('status', isEqualTo: 'inprogress')
+          .where('status', whereIn: ['accepted', 'inprogress'])
           .get();
 
       final int applicationsInProgress = appsInProgressSnap.size;

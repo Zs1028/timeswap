@@ -1029,6 +1029,9 @@ class _BottomNav extends StatelessWidget {
       selectedItemColor: Colors.black87,
       unselectedItemColor: Colors.black54,
       showUnselectedLabels: true,
+      type: BottomNavigationBarType.fixed,
+      selectedFontSize: 11,
+      unselectedFontSize: 10,
       items: const [
         BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
         BottomNavigationBarItem(
@@ -1042,6 +1045,7 @@ class _BottomNav extends StatelessWidget {
       ],
       onTap: (i) {
         if (i == currentIndex) return;
+
         switch (i) {
           case 0:
             Navigator.pushNamed(context, AppRoutes.home);
@@ -1053,7 +1057,7 @@ class _BottomNav extends StatelessWidget {
             Navigator.pushNamed(context, AppRoutes.yourRequests);
             break;
           case 3:
-            Navigator.pushNamed(context, AppRoutes.myApplications);
+              Navigator.pushNamed(context, AppRoutes.myApplications);
             break;
           case 4:
             Navigator.pushNamed(context, AppRoutes.profile);
