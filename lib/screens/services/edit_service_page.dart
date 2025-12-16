@@ -70,15 +70,6 @@ class _EditServicePageState extends State<EditServicePage> {
     'Kuala Lumpur',
   ];
 
-  // credits options (same as AddOfferingPage)
-  final List<double> _creditOptions = const [
-    1.0,
-    1.5,
-    2.0,
-    3.0,
-    4.0,
-    5.0,
-  ];
 
   @override
 void initState() {
@@ -224,17 +215,21 @@ void initState() {
           .collection('services')
           .doc(widget.service.id)
           .update({
-        'serviceTitle': title,
         'serviceDescription': description,
-        'category': category,
         'location': location,
         'state': state,
         'locationDetails': locationDetails,
         'availableTiming': availableTiming,
         'flexibleNotes': flexibleNotes,
-        'creditsPerHour': creditsRequired,
         'updatedDate': FieldValue.serverTimestamp(),
       });
+
+      if (description.isEmpty || date.isEmpty || from.isEmpty || to.isEmpty || state.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all required fields.')),
+      );
+      return;
+    }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -286,13 +281,11 @@ void initState() {
                   child: Column(
                     children: [
                       _buildTextField(
-                        label: 'Title *',
+                        label: 'Title (cannot be edited) *',
                         controller: _titleController,
-                        hint: 'Offer Help with Gardening',
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? 'Please enter a title'
-                                : null,
+                        hint: 'Gardening',
+                        validator:  null,
+                        readOnly: true,
                       ),
                       const SizedBox(height: 12),
                       _buildTextField(
@@ -389,14 +382,12 @@ void initState() {
 
                       // Category dropdown
                       _buildDropdown<String>(
-                        label: 'Category *',
+                        label: 'Category (cannot be edited) *',
                         value: _selectedCategory,
                         items: _categories,
                         hint: 'Select category',
-                        validator: (v) =>
-                            v == null ? 'Please select a category' : null,
-                        onChanged: (v) =>
-                            setState(() => _selectedCategory = v),
+                        onChanged: (v) {},
+                        enabled: false,
                       ),
                       const SizedBox(height: 12),
 
@@ -425,67 +416,28 @@ void initState() {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Time Credits Required *',
+                          'Time Credits Required (cannot be edited)',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.black.withOpacity(0.8),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Standard rate: 1 credit = 1 hour',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.black.withOpacity(0.6),
-                          ),
-                        ),
-                      ),
                       const SizedBox(height: 6),
-
-                      DropdownButtonFormField<double>(
-                        value: _selectedCreditsRequired,
-                        decoration: InputDecoration(
-                          filled: true,
-                          fillColor: Colors.white,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                                const BorderSide(color: Colors.black12),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide:
-                                const BorderSide(color: Colors.black12),
-                          ),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.black12),
                         ),
-                        items: _creditOptions.map((c) {
-                          String label;
-                          if (c == 1.0) {
-                            label = '1 hour (1 credit)';
-                          } else if (c == 5.0) {
-                            label = '5+ hours (5+ credits)';
-                          } else {
-                            label = '${c.toString()} hours (${c.toString()} credits)';
-                          }
-                          return DropdownMenuItem<double>(
-                            value: c,
-                            child: Text(label),
-                          );
-                        }).toList(),
-                        onChanged: (v) =>
-                            setState(() => _selectedCreditsRequired = v),
-                        validator: (v) =>
-                            v == null ? 'Please select time credits' : null,
+                        child: Text(
+                          '${_selectedCreditsRequired?.toString() ?? ''} credits',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 40),                                           
                     ],
                   ),
                 ),
@@ -563,6 +515,7 @@ void initState() {
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
+    bool readOnly = false, 
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -580,10 +533,11 @@ void initState() {
           maxLines: maxLines,
           keyboardType: keyboardType,
           validator: validator,
+          readOnly: readOnly,
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
-            fillColor: Colors.white,
+            fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
             isDense: true,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -609,6 +563,7 @@ void initState() {
     required String hint,
     required void Function(T?) onChanged,
     String? Function(T?)? validator,
+    bool enabled = true,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,7 +581,7 @@ void initState() {
           decoration: InputDecoration(
             hintText: hint,
             filled: true,
-            fillColor: Colors.white,
+            fillColor: enabled ? Colors.white : Colors.grey.shade100,
             isDense: true,
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -647,7 +602,7 @@ void initState() {
                 ),
               )
               .toList(),
-          onChanged: onChanged,
+          onChanged:  enabled ? onChanged : null,
           validator: validator,
         ),
       ],

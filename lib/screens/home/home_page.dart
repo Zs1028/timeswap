@@ -246,22 +246,16 @@ class _ActivitySummaryCard extends StatelessWidget {
         .where('serviceStatus', isEqualTo: 'inprogress')
         .get();
 
-    // 3) Your applications in progress
-    //    (you applied to others' services; we count accepted + inprogress)
-    final appsAcceptedSnap = await fs
-        .collection('serviceRequests')
-        .where('requesterId', isEqualTo: uid)
-        .where('status', isEqualTo: 'accepted')
-        .get();
 
-    final appsInProgressSnap = await fs
-        .collection('serviceRequests')
-        .where('requesterId', isEqualTo: uid)
-        .where('status', isEqualTo: 'inprogress')
-        .get();
+   // 3) Your applications in progress
+//    (you applied to others' services; count ONLY inprogress)
+      final appsInProgressSnap = await fs
+          .collection('serviceRequests')
+          .where('requesterId', isEqualTo: uid)
+          .where('status', isEqualTo: 'inprogress')
+          .get();
 
-    final int applicationsInProgress =
-        appsAcceptedSnap.size + appsInProgressSnap.size;
+      final int applicationsInProgress = appsInProgressSnap.size;
 
     // 4) Service requests need your response (your "need help" listings that are still open)
     final requestsNeedResponseSnap = await fs

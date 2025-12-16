@@ -486,20 +486,18 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                                 const BorderSide(color: Colors.black12),
                           ),
                         ),
-                        items: _creditOptions.map((c) {
-                          String label;
-                          if (c == 1.0) {
-                            label = '1 credit';
-                          } else if (c == 5.0) {
-                            label = '5 credits';
-                          } else {
-                            label = '${c.toString()} credits';
-                          }
-                          return DropdownMenuItem<double>(
-                            value: c,
-                            child: Text(label),
-                          );
-                        }).toList(),
+                       items: _creditOptions.map((c) {
+                        final bool isWhole = c % 1 == 0;
+
+                        final String label = isWhole
+                            ? '${c.toInt()} credits'
+                            : '$c credits';
+
+                        return DropdownMenuItem<double>(
+                          value: c,
+                          child: Text(label),
+                        );
+                      }).toList(),
                         onChanged: (v) =>
                             setState(() => _selectedCreditsRequired = v),
                         validator: (v) =>

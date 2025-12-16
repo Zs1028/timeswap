@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../profile/provider_profile_page.dart';
-
+import '../../services/credit_service.dart';
 import '../../models/service_model.dart';
 
 class ServiceDetailsPage extends StatelessWidget {
@@ -535,8 +535,26 @@ void _showConfirmDialog(BuildContext context, bool isOfferListing) {
                                   user.email ??
                                   'TimeSwap User';
 
+                                // 🔒 Pre-check: ensure requester has enough credits BEFORE submitting request
+                              final ok = await CreditService.userHasEnoughCredits(
+                                userId: FirebaseAuth.instance.currentUser!.uid,
+                                requiredCredits: service.creditsPerHour,
+                              );
+
+                              if (!ok) {
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'You do not have enough time credits to request this service.',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }  
+
                               await FirebaseFirestore.instance
-                                  .collection('serviceRequests')
+                                  .collection('serviceRequests')                                 
                                   .add({
                                 'serviceId': service.id,
                                 'serviceTitle': service.serviceTitle,
