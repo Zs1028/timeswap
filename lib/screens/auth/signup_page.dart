@@ -88,7 +88,13 @@ class _SignupPageState extends State<SignupPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
       appBar: AppBar(
-        title: const Text('Create an Account'),
+        automaticallyImplyLeading: false,
+         title: const Text(
+          'Create an Account',
+          style: TextStyle(
+            fontWeight: FontWeight.w700, // ✅ bold 700
+          ),
+        ),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,

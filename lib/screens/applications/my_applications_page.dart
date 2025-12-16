@@ -164,6 +164,7 @@ class _MyApplicationsPageState extends State<MyApplicationsPage> {
           children: [
             // first row: Pending, In Progress, Accepted
             Row(
+               mainAxisAlignment: MainAxisAlignment.center, 
               children: [
                 chip('Pending', 'pending'),
                 const SizedBox(width: 8),
@@ -175,6 +176,7 @@ class _MyApplicationsPageState extends State<MyApplicationsPage> {
             const SizedBox(height: 8),
             // second row: Declined, Completed
             Row(
+               mainAxisAlignment: MainAxisAlignment.center, 
               children: [
                 chip('Declined', 'declined'),
                 const SizedBox(width: 8),
