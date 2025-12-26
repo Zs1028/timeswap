@@ -61,7 +61,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
     'Sarawak',
     'Selangor',
     'Terengganu',
-    'Kuala Lumpur',
+    'W.P. Kuala Lumpur',
   ];
 
   // credits options
@@ -174,7 +174,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
   if ((startDate.isNotEmpty && endDate.isEmpty) ||
       (startDate.isEmpty && endDate.isNotEmpty)) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please select both Start Date and End Date (or leave both empty).')),
+      const SnackBar(content: Text('Please select both "Available From" and "Available Until" (or leave both field empty).')),
     );
     return;
   }
@@ -196,8 +196,14 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
   String availableTiming = '';
 
   if (startDate.isNotEmpty && endDate.isNotEmpty) {
+  if (startDate == endDate) {
+    // ✅ One-day availability
+    availableTiming = startDate;
+  } else {
+    // ✅ Multi-day range
     availableTiming = '$startDate – $endDate';
   }
+}
 
   if (from.isNotEmpty && to.isNotEmpty) {
     final timePart = '$from – $to';
@@ -290,7 +296,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                       _buildTextField(
                         label: 'Title *',
                         controller: _titleController,
-                        hint: 'Offer Help with Gardening',
+                        hint: 'Gardening',
                         validator: (v) =>
                             (v == null || v.trim().isEmpty)
                                 ? 'Please enter a title'
@@ -341,7 +347,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                               onTap: () => _pickDate(_startDateController),
                               child: AbsorbPointer(
                                 child: _buildTextField(
-                                  label: 'Start Date',
+                                  label: 'Available From',
                                   controller: _startDateController,
                                   hint: 'e.g. 27/7/2025',
                                   // ❌ no validator → optional
@@ -355,7 +361,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                               onTap: () => _pickDate(_endDateController),
                               child: AbsorbPointer(
                                 child: _buildTextField(
-                                  label: 'End Date',
+                                  label: 'Available Until',
                                   controller: _endDateController,
                                   hint: 'e.g. 30/7/2025',
                                 ),

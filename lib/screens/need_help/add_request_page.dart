@@ -175,7 +175,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
   if ((startDate.isNotEmpty && endDate.isEmpty) ||
       (startDate.isEmpty && endDate.isNotEmpty)) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please select both Start Date and End Date (or leave both empty).')),
+      const SnackBar(content: Text('Please select both" Available From" and "Available Until" (or leave both field empty).')),
     );
     return;
   }
@@ -196,9 +196,15 @@ class _AddRequestPageState extends State<AddRequestPage> {
   // ✅ Build availableTiming (optional, user-friendly)
   String availableTiming = '';
 
-  if (startDate.isNotEmpty && endDate.isNotEmpty) {
+ if (startDate.isNotEmpty && endDate.isNotEmpty) {
+  if (startDate == endDate) {
+    // ✅ One-day availability
+    availableTiming = startDate;
+  } else {
+    // ✅ Multi-day range
     availableTiming = '$startDate – $endDate';
   }
+}
 
   if (from.isNotEmpty && to.isNotEmpty) {
     final timePart = '$from – $to';
@@ -293,7 +299,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                       _buildTextField(
                         label: 'Title *',
                         controller: _titleController,
-                        hint: 'Need Help with Moving Boxes',
+                        hint: 'Moving Boxes',
                       ),
                       const SizedBox(height: 12),
                       _buildTextField(
@@ -336,7 +342,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                               onTap: () => _pickDate(_startDateController),
                               child: AbsorbPointer(
                                 child: _buildTextField(
-                                  label: 'Start Date',
+                                  label: 'Available From',
                                   controller: _startDateController,
                                   hint: 'e.g. 27/7/2025',
                                   // ❌ no validator → optional
@@ -350,7 +356,7 @@ class _AddRequestPageState extends State<AddRequestPage> {
                               onTap: () => _pickDate(_endDateController),
                               child: AbsorbPointer(
                                 child: _buildTextField(
-                                  label: 'End Date',
+                                  label: 'Available Until',
                                   controller: _endDateController,
                                   hint: 'e.g. 30/7/2025',
                                 ),

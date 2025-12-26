@@ -302,11 +302,11 @@ class _MyServicesTabState extends State<_MyServicesTab> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          buildChip('Open', 'open'),
+          buildChip('Open', 'Open'),
           const SizedBox(width: 8),
-          buildChip('In Progress', 'inprogress'),
+          buildChip('In Progress', 'In Progress'),
           const SizedBox(width: 8),
-          buildChip('Completed', 'completed'),
+          buildChip('Completed', 'Completed'),
         ],
       ),
     );
@@ -331,7 +331,7 @@ class _ServiceCard extends StatelessWidget {
     switch (s.toLowerCase()) {
       case 'open':
         return const Color(0xFFBFE8C9);
-      case 'inprogress':
+      case 'in progress':
         return const Color(0xFFFBE1B8);
       case 'completed':
         return const Color(0xFFB0BEC5);
@@ -343,7 +343,7 @@ class _ServiceCard extends StatelessWidget {
   @override
 Widget build(BuildContext context) {
   final bool showMarkCompleted =
-      service.serviceStatus.toLowerCase() == 'inprogress';
+      service.serviceStatus.toLowerCase() == 'in progress';
 
   final user = FirebaseAuth.instance.currentUser;
   final uid = user?.uid;
@@ -351,7 +351,7 @@ Widget build(BuildContext context) {
   final serviceStatus = service.serviceStatus.toLowerCase();
 
   final bool showViewParticipant =
-    serviceStatus == 'inprogress' &&
+    serviceStatus == 'in progress' &&
     service.helperId.isNotEmpty &&
     service.helpeeId.isNotEmpty;
 
@@ -507,7 +507,7 @@ Widget build(BuildContext context) {
                               child: SizedBox(
                                 height: 40,
                                 child: OutlinedButton(
-                                  onPressed: () => _markAsCompleted(context),
+                                  onPressed: () => _confirmMarkCompleted(context),
                                   style: OutlinedButton.styleFrom(
                                     backgroundColor: Colors.white,
                                     side: const BorderSide(
@@ -825,6 +825,81 @@ Widget build(BuildContext context) {
       );
     }
   }
+
+  Future<void> _confirmMarkCompleted(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        title: const Text('Mark as completed?', style: TextStyle(fontWeight: FontWeight.w600),),
+        content: const Text(
+          'Are you sure you want to mark this service as completed? '
+          'This action cannot be undone.',
+        ),
+        actions: [
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // ❌ Cancel button (red)
+                OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  ),
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 16),
+
+                // ✅ Done button (green)
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _markAsCompleted(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF7ED9A2),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                  ),
+                  child: const Text(
+                    'Done',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    },
+  );
+
+  if (confirmed == true) {
+    await _markAsCompleted(context); 
+  }
+}
+
 
   // ---------- Rating logic (helper/helpee) ----------
   Future<void> _openRatingDialog(BuildContext context) async {

@@ -668,15 +668,15 @@ void _showConfirmDialog(BuildContext context, bool isOfferListing) {
                         Navigator.of(context).pop(); // back to list
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
+                        backgroundColor: Colors.orangeAccent,
                         foregroundColor: const Color(0xFF3CB371),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(24),
                         ),
                       ),
                       child: const Text(
                         'Done',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                        style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white,),
                       ),
                     ),
                   ),

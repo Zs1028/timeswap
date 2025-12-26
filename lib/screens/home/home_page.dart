@@ -678,8 +678,10 @@ class _RecentActivityCard extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.circle,
-                                size: 8, color: Colors.black54),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: const Icon(Icons.circle, size: 7, color: Colors.black54),
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(

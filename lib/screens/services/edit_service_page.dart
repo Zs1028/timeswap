@@ -22,7 +22,12 @@ class _EditServicePageState extends State<EditServicePage> {
 
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _dateController = TextEditingController();
+
+  // ✅ NEW: date range
+  final _availableFromController = TextEditingController();
+  final _availableUntilController = TextEditingController();
+
+  // time range
   final _fromTimeController = TextEditingController();
   final _toTimeController = TextEditingController();
 
@@ -39,7 +44,6 @@ class _EditServicePageState extends State<EditServicePage> {
 
   bool _isSubmitting = false;
 
-  // category options (same as AddOfferingPage)
   final List<String> _categories = const [
     'Home Services',
     'Education & Tutoring',
@@ -52,7 +56,6 @@ class _EditServicePageState extends State<EditServicePage> {
     'Other',
   ];
 
-  // 14 Malaysia states + KL (same as AddOfferingPage)
   final List<String> _states = const [
     'Johor',
     'Kedah',
@@ -70,76 +73,69 @@ class _EditServicePageState extends State<EditServicePage> {
     'Kuala Lumpur',
   ];
 
-
   @override
-void initState() {
-  super.initState();
+  void initState() {
+    super.initState();
 
-  final s = widget.service;
+    final s = widget.service;
 
-  // Basic fields
-  _titleController.text = s.serviceTitle;
-  _descriptionController.text = s.serviceDescription;
-  _flexibleNotesController.text = s.flexibleNotes ?? '';
+    _titleController.text = s.serviceTitle;
+    _descriptionController.text = s.serviceDescription;
+    _flexibleNotesController.text = s.flexibleNotes ?? '';
 
-  // ✅ Parse state + location details from `location`
-  String parsedState = '';
-  String parsedLocationDetails = '';
+    // ✅ Parse state + location details from `location`
+    String parsedState = '';
+    String parsedLocationDetails = '';
 
-  if (s.location.contains(' - ')) {
-    final parts = s.location.split(' - ');
-    parsedState = parts[0].trim();
-    parsedLocationDetails = parts.length > 1 ? parts[1].trim() : '';
-  } else {
-    parsedState = s.location.trim();
-  }
-
-  _selectedState = _states.contains(parsedState) ? parsedState : null;
-  _locationDetailsController.text = parsedLocationDetails;
-
-  // Category
-  _selectedCategory = _categories.contains(s.category)
-      ? s.category
-      : null;
-
-  // Credits
-  _selectedCreditsRequired =
-      (s.creditsPerHour is num)
-          ? (s.creditsPerHour as num).toDouble()
-          : null;
-
-  // ✅ Parse availableTiming: "date, from - to"
-  String date = '';
-  String from = '';
-  String to = '';
-
-  if (s.availableTiming.isNotEmpty) {
-    final parts = s.availableTiming.split(',');
-    if (parts.isNotEmpty) {
-      date = parts[0].trim();
+    if (s.location.contains(' - ')) {
+      final parts = s.location.split(' - ');
+      parsedState = parts[0].trim();
+      parsedLocationDetails = parts.length > 1 ? parts[1].trim() : '';
+    } else {
+      parsedState = s.location.trim();
     }
-    if (parts.length > 1) {
-      final timeRange = parts[1].split('-');
-      if (timeRange.isNotEmpty) {
-        from = timeRange[0].trim();
-      }
-      if (timeRange.length > 1) {
-        to = timeRange[1].trim();
+
+    _selectedState = _states.contains(parsedState) ? parsedState : null;
+    _locationDetailsController.text = parsedLocationDetails;
+
+    _selectedCategory = _categories.contains(s.category) ? s.category : null;
+
+    _selectedCreditsRequired =
+        (s.creditsPerHour is num) ? (s.creditsPerHour as num).toDouble() : null;
+
+    // ✅ Backward compatible: parse time + date from availableTiming
+    // Old format: "27/7/2025, 4:00 PM - 6:00 PM"
+    String datePart = '';
+    String from = '';
+    String to = '';
+
+    if (s.availableTiming.isNotEmpty) {
+      final parts = s.availableTiming.split(',');
+      if (parts.isNotEmpty) datePart = parts[0].trim();
+
+      if (parts.length > 1) {
+        final timeRange = parts[1].split('-');
+        if (timeRange.isNotEmpty) from = timeRange[0].trim();
+        if (timeRange.length > 1) to = timeRange[1].trim();
       }
     }
+
+    // ✅ If you already store availableFrom/availableUntil in Firestore,
+    // put them into your Service model and read them here.
+    // If not available, fallback to old datePart and set both same day.
+    _availableFromController.text = datePart;
+    _availableUntilController.text = datePart;
+
+    _fromTimeController.text = from;
+    _toTimeController.text = to;
   }
-
-  _dateController.text = date;
-  _fromTimeController.text = from;
-  _toTimeController.text = to;
-}
-
 
   @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _dateController.dispose();
+    _availableFromController.dispose();
+    _availableUntilController.dispose();
     _fromTimeController.dispose();
     _toTimeController.dispose();
     _locationDetailsController.dispose();
@@ -147,17 +143,30 @@ void initState() {
     super.dispose();
   }
 
-  Future<void> _pickDate() async {
+  // ---------- date helpers ----------
+  DateTime? _parseDdMmYyyy(String s) {
+    // expects dd/mm/yyyy
+    final parts = s.split('/');
+    if (parts.length != 3) return null;
+    final d = int.tryParse(parts[0]);
+    final m = int.tryParse(parts[1]);
+    final y = int.tryParse(parts[2]);
+    if (d == null || m == null || y == null) return null;
+    return DateTime(y, m, d);
+  }
+
+  String _formatDdMmYyyy(DateTime dt) => '${dt.day}/${dt.month}/${dt.year}';
+
+  Future<void> _pickDateInto(TextEditingController controller) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _parseDdMmYyyy(controller.text) ?? now,
       firstDate: now,
       lastDate: now.add(const Duration(days: 365)),
     );
     if (picked != null) {
-      _dateController.text =
-          '${picked.day}/${picked.month}/${picked.year}';
+      controller.text = _formatDdMmYyyy(picked);
       setState(() {});
     }
   }
@@ -171,26 +180,37 @@ void initState() {
     }
   }
 
+  String _buildDateDisplay(String fromDate, String untilDate) {
+    if (fromDate.isEmpty && untilDate.isEmpty) return '';
+    if (fromDate.isNotEmpty && untilDate.isNotEmpty) {
+      return (fromDate == untilDate) ? fromDate : '$fromDate - $untilDate';
+    }
+    // should not happen if validated properly
+    return fromDate.isNotEmpty ? fromDate : untilDate;
+  }
+
   Future<void> _saveChanges() async {
-    // Validate basic fields
     if (!_formKey.currentState!.validate()) return;
 
-    final title = _titleController.text.trim();
     final description = _descriptionController.text.trim();
-    final date = _dateController.text.trim();
-    final from = _fromTimeController.text.trim();
-    final to = _toTimeController.text.trim();
+
+    final fromDate = _availableFromController.text.trim();
+    final untilDate = _availableUntilController.text.trim();
+
+    final fromTime = _fromTimeController.text.trim();
+    final toTime = _toTimeController.text.trim();
+
     final category = _selectedCategory ?? '';
     final state = _selectedState ?? '';
     final locationDetails = _locationDetailsController.text.trim();
     final flexibleNotes = _flexibleNotesController.text.trim();
     final creditsRequired = _selectedCreditsRequired;
 
-    if (title.isEmpty ||
-        description.isEmpty ||
-        date.isEmpty ||
-        from.isEmpty ||
-        to.isEmpty ||
+    if (description.isEmpty ||
+        fromDate.isEmpty ||
+        untilDate.isEmpty ||
+        fromTime.isEmpty ||
+        toTime.isEmpty ||
         category.isEmpty ||
         state.isEmpty ||
         creditsRequired == null) {
@@ -200,13 +220,35 @@ void initState() {
       return;
     }
 
-    // build location string (state + optional details)
+    // ✅ date validation (until >= from)
+    final fromDt = _parseDdMmYyyy(fromDate);
+    final untilDt = _parseDdMmYyyy(untilDate);
+
+    if (fromDt == null || untilDt == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select valid dates.')),
+      );
+      return;
+    }
+
+    if (untilDt.isBefore(fromDt)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              '"Available Until" must be the same or after "Available From".'),
+        ),
+      );
+      return;
+    }
+
     final location = [
       state,
       if (locationDetails.isNotEmpty) locationDetails,
     ].join(' - ');
 
-    final availableTiming = '$date, $from - $to';
+    // keep your existing availableTiming string for UI
+    final dateDisplay = _buildDateDisplay(fromDate, untilDate);
+    final availableTiming = '$dateDisplay, $fromTime - $toTime';
 
     setState(() => _isSubmitting = true);
 
@@ -220,16 +262,14 @@ void initState() {
         'state': state,
         'locationDetails': locationDetails,
         'availableTiming': availableTiming,
+
+        // ✅ NEW fields (so future pages can read them)
+        'availableFrom': fromDate,
+        'availableUntil': untilDate,
+
         'flexibleNotes': flexibleNotes,
         'updatedDate': FieldValue.serverTimestamp(),
       });
-
-      if (description.isEmpty || date.isEmpty || from.isEmpty || to.isEmpty || state.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all required fields.')),
-      );
-      return;
-    }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -242,17 +282,14 @@ void initState() {
         SnackBar(content: Text('Failed to update service: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final String appBarTitle = widget.isOfferedTab
-        ? 'Edit Service Offered'
-        : 'Edit Service Requested';
+    final String appBarTitle =
+        widget.isOfferedTab ? 'Edit Service Offered' : 'Edit Service Requested';
 
     return Scaffold(
       backgroundColor: const Color(0xFFFFF4D1),
@@ -274,8 +311,7 @@ void initState() {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -284,7 +320,7 @@ void initState() {
                         label: 'Title (cannot be edited) *',
                         controller: _titleController,
                         hint: 'Gardening',
-                        validator:  null,
+                        validator: null,
                         readOnly: true,
                       ),
                       const SizedBox(height: 12),
@@ -294,14 +330,13 @@ void initState() {
                         hint:
                             'I can help with basic gardening, watering plants, and trimming.',
                         maxLines: 3,
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty)
-                                ? 'Please enter a description'
-                                : null,
+                        validator: (v) => (v == null || v.trim().isEmpty)
+                            ? 'Please enter a description'
+                            : null,
                       ),
                       const SizedBox(height: 12),
 
-                      // Available Date & Time
+                      // ✅ Available Date Range + Time
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -314,20 +349,53 @@ void initState() {
                       ),
                       const SizedBox(height: 6),
 
-                      // Date picker
-                      GestureDetector(
-                        onTap: _pickDate,
-                        child: AbsorbPointer(
-                          child: _buildTextField(
-                            label: 'Date',
-                            controller: _dateController,
-                            hint: '27/7/2025',
-                            validator: (v) =>
-                                (v == null || v.trim().isEmpty)
-                                    ? 'Please select a date'
-                                    : null,
+                      // ✅ Date range
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _pickDateInto(_availableFromController),
+                              child: AbsorbPointer(
+                                child: _buildTextField(
+                                  label: 'Available From',
+                                  controller: _availableFromController,
+                                  hint: '12/12/2025',
+                                  validator: (v) {
+                                    final until = _availableUntilController.text.trim();
+                                    final from = (v ?? '').trim();
+                                    if (from.isEmpty && until.isNotEmpty) {
+                                      return 'Please select Available From';
+                                    }
+                                    if (from.isEmpty) return 'Please select a date';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _pickDateInto(_availableUntilController),
+                              child: AbsorbPointer(
+                                child: _buildTextField(
+                                  label: 'Available Until',
+                                  controller: _availableUntilController,
+                                  hint: '12/12/2025',
+                                  validator: (v) {
+                                    final from = _availableFromController.text.trim();
+                                    final until = (v ?? '').trim();
+                                    if (until.isEmpty && from.isNotEmpty) {
+                                      return 'Please select Available Until';
+                                    }
+                                    if (until.isEmpty) return 'Please select a date';
+                                    return null;
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 8),
 
@@ -339,13 +407,12 @@ void initState() {
                               onTap: () => _pickTime(_fromTimeController),
                               child: AbsorbPointer(
                                 child: _buildTextField(
-                                  label: 'From',
+                                  label: 'From (time)',
                                   controller: _fromTimeController,
                                   hint: '4:00 PM',
-                                  validator: (v) =>
-                                      (v == null || v.trim().isEmpty)
-                                          ? 'Select a start time'
-                                          : null,
+                                  validator: (v) => (v == null || v.trim().isEmpty)
+                                      ? 'Select a start time'
+                                      : null,
                                 ),
                               ),
                             ),
@@ -356,22 +423,21 @@ void initState() {
                               onTap: () => _pickTime(_toTimeController),
                               child: AbsorbPointer(
                                 child: _buildTextField(
-                                  label: 'To',
+                                  label: 'To (time)',
                                   controller: _toTimeController,
                                   hint: '6:00 PM',
-                                  validator: (v) =>
-                                      (v == null || v.trim().isEmpty)
-                                          ? 'Select an end time'
-                                          : null,
+                                  validator: (v) => (v == null || v.trim().isEmpty)
+                                      ? 'Select an end time'
+                                      : null,
                                 ),
                               ),
                             ),
                           ),
                         ],
                       ),
+
                       const SizedBox(height: 8),
 
-                      // Flexible timing notes (optional)
                       _buildTextField(
                         label: 'Flexible timing notes (optional)',
                         controller: _flexibleNotesController,
@@ -380,7 +446,6 @@ void initState() {
                       ),
                       const SizedBox(height: 12),
 
-                      // Category dropdown
                       _buildDropdown<String>(
                         label: 'Category (cannot be edited) *',
                         value: _selectedCategory,
@@ -391,20 +456,16 @@ void initState() {
                       ),
                       const SizedBox(height: 12),
 
-                      // State dropdown
                       _buildDropdown<String>(
                         label: 'Location (state / area) *',
                         value: _selectedState,
                         items: _states,
                         hint: 'Select state or area',
-                        validator: (v) =>
-                            v == null ? 'Please select a state' : null,
-                        onChanged: (v) =>
-                            setState(() => _selectedState = v),
+                        validator: (v) => v == null ? 'Please select a state' : null,
+                        onChanged: (v) => setState(() => _selectedState = v),
                       ),
                       const SizedBox(height: 8),
 
-                      // Optional location details
                       _buildTextField(
                         label: 'Location details (optional)',
                         controller: _locationDetailsController,
@@ -412,7 +473,6 @@ void initState() {
                       ),
                       const SizedBox(height: 12),
 
-                      // Time credits required
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
@@ -437,7 +497,7 @@ void initState() {
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
-                      const SizedBox(height: 40),                                           
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -452,9 +512,7 @@ void initState() {
                 children: [
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => Navigator.of(context).pop(false),
+                      onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
@@ -463,10 +521,7 @@ void initState() {
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                      child: const Text(
-                        'Cancel',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                      child: const Text('Cancel', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -487,15 +542,10 @@ void initState() {
                               height: 22,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const Text(
-                              'Save',
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
+                          : const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
                     ),
                   ),
                 ],
@@ -507,7 +557,7 @@ void initState() {
     );
   }
 
-  // Shared text field builder (same as AddOfferingPage)
+  // Shared text field builder
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
@@ -515,7 +565,7 @@ void initState() {
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
     String? Function(String?)? validator,
-    bool readOnly = false, 
+    bool readOnly = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -539,8 +589,7 @@ void initState() {
             filled: true,
             fillColor: readOnly ? Colors.grey.shade100 : Colors.white,
             isDense: true,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.black12),
@@ -555,7 +604,7 @@ void initState() {
     );
   }
 
-  // Shared dropdown builder (same as AddOfferingPage)
+  // Shared dropdown builder
   Widget _buildDropdown<T>({
     required String label,
     required T? value,
@@ -583,8 +632,7 @@ void initState() {
             filled: true,
             fillColor: enabled ? Colors.white : Colors.grey.shade100,
             isDense: true,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: Colors.black12),
@@ -595,14 +643,12 @@ void initState() {
             ),
           ),
           items: items
-              .map(
-                (e) => DropdownMenuItem<T>(
-                  value: e,
-                  child: Text(e.toString()),
-                ),
-              )
+              .map((e) => DropdownMenuItem<T>(
+                    value: e,
+                    child: Text(e.toString()),
+                  ))
               .toList(),
-          onChanged:  enabled ? onChanged : null,
+          onChanged: enabled ? onChanged : null,
           validator: validator,
         ),
       ],

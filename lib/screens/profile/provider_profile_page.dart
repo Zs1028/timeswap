@@ -24,7 +24,7 @@ class ProviderProfilePage extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Provider Profile',
+          'User Profile',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
