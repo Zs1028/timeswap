@@ -302,11 +302,11 @@ class _MyServicesTabState extends State<_MyServicesTab> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          buildChip('Open', 'Open'),
+          buildChip('Open', 'open'),
           const SizedBox(width: 8),
-          buildChip('In Progress', 'In Progress'),
+          buildChip('In Progress', 'inprogress'),
           const SizedBox(width: 8),
-          buildChip('Completed', 'Completed'),
+          buildChip('Completed', 'completed'),
         ],
       ),
     );
@@ -331,7 +331,7 @@ class _ServiceCard extends StatelessWidget {
     switch (s.toLowerCase()) {
       case 'open':
         return const Color(0xFFBFE8C9);
-      case 'in progress':
+      case 'inprogress':
         return const Color(0xFFFBE1B8);
       case 'completed':
         return const Color(0xFFB0BEC5);
@@ -343,7 +343,7 @@ class _ServiceCard extends StatelessWidget {
   @override
 Widget build(BuildContext context) {
   final bool showMarkCompleted =
-      service.serviceStatus.toLowerCase() == 'in progress';
+      service.serviceStatus.toLowerCase() == 'inprogress';
 
   final user = FirebaseAuth.instance.currentUser;
   final uid = user?.uid;
@@ -351,7 +351,7 @@ Widget build(BuildContext context) {
   final serviceStatus = service.serviceStatus.toLowerCase();
 
   final bool showViewParticipant =
-    serviceStatus == 'in progress' &&
+    serviceStatus == 'inprogress' &&
     service.helperId.isNotEmpty &&
     service.helpeeId.isNotEmpty;
 
