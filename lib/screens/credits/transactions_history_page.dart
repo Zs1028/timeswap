@@ -127,12 +127,6 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         centerTitle: true,
-        actions: const [
-          Padding(
-            padding: EdgeInsets.only(right: 12),
-            child: Icon(Icons.filter_list),
-          ),
-        ],
       ),
       body: FutureBuilder<List<_HistoryTxn>>(
         future: _future,
@@ -245,34 +239,45 @@ class _TransactionHistoryPageState extends State<TransactionHistoryPage> {
     );
   }
 
-  Widget _filterChips() {
+    Widget _filterChips() {
+    Widget chip(String label, _HistoryFilter value) {
+        final selected = _filter == value;
+
+        return Expanded(
+          child: ChoiceChip(
+            label: Center(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+              ),
+            ),
+            selected: selected,
+            onSelected: (_) => setState(() => _filter = value),
+            selectedColor: const Color(0xFFF39C50),
+            backgroundColor: Colors.white,
+            labelStyle: TextStyle(
+              color: selected ? Colors.white : Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 8), // ⭐ KEY FIX
+            side: const BorderSide(color: Colors.black12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
         children: [
-          ChoiceChip(
-            label: const Text('All'),
-            selected: _filter == _HistoryFilter.all,
-            onSelected: (_) {
-              setState(() => _filter = _HistoryFilter.all);
-            },
-          ),
-          const SizedBox(width: 8),
-          ChoiceChip(
-            label: const Text('Earned'),
-            selected: _filter == _HistoryFilter.earned,
-            onSelected: (_) {
-              setState(() => _filter = _HistoryFilter.earned);
-            },
-          ),
-          const SizedBox(width: 8),
-          ChoiceChip(
-            label: const Text('Spent'),
-            selected: _filter == _HistoryFilter.spent,
-            onSelected: (_) {
-              setState(() => _filter = _HistoryFilter.spent);
-            },
-          ),
+          chip('All', _HistoryFilter.all),
+          const SizedBox(width: 10),
+          chip('Earned', _HistoryFilter.earned),
+          const SizedBox(width: 10),
+          chip('Spent', _HistoryFilter.spent),
         ],
       ),
     );

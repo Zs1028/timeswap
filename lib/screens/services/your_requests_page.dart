@@ -281,32 +281,59 @@ class _MyServicesTabState extends State<_MyServicesTab> {
     );
   }
 
-  Widget _statusChips() {
-    Widget buildChip(String label, String value) {
-      final bool selected = _statusFilter == value;
-        return SizedBox(
-        width: 120, // ✅ fixed width for all chips
-        child: ChoiceChip(
-          label: Text(label),
-          selected: selected,
-          onSelected: (_) {
-            setState(() => _statusFilter = value);
-          },
-          selectedColor: const Color(0xFFF39C50),
+    Widget _statusChips() {
+    Widget chip(String label, String value) {
+  final selected = _statusFilter == value;
+
+  return Expanded(
+    child: SizedBox(
+      height: 40, // ✅ consistent height
+      child: ChoiceChip(
+        showCheckmark: true,
+
+        // 🔥 KEY FIXES
+        labelPadding: EdgeInsets.zero,
+        padding: EdgeInsets.zero,
+        visualDensity: const VisualDensity(vertical: -2),
+
+        label: Center(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+          ),
         ),
-      );
-    }
+
+        selected: selected,
+        onSelected: (_) => setState(() => _statusFilter = value),
+
+        selectedColor: const Color(0xFFF39C50),
+        backgroundColor: Colors.white,
+
+        labelStyle: TextStyle(
+          color: selected ? Colors.white : Colors.black87,
+          fontWeight: FontWeight.w600,
+        ),
+
+        side: const BorderSide(color: Colors.black12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    ),
+  );
+}
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          buildChip('Open', 'open'),
-          const SizedBox(width: 8),
-          buildChip('In Progress', 'inprogress'),
-          const SizedBox(width: 8),
-          buildChip('Completed', 'completed'),
+          chip('Open', 'open'),
+          const SizedBox(width: 10),
+          chip('In Progress', 'inprogress'),
+          const SizedBox(width: 10),
+          chip('Completed', 'completed'),
         ],
       ),
     );
