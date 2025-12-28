@@ -247,16 +247,6 @@ class _ActivitySummaryCard extends StatelessWidget {
         .get();
 
 
-   // 3) Your applications in progress
-//    (you applied to others' services; count ONLY inprogress)
-      final appsInProgressSnap = await fs
-          .collection('serviceRequests')
-          .where('requesterId', isEqualTo: uid)
-          .where('status', whereIn: ['accepted', 'inprogress'])
-          .get();
-
-      final int applicationsInProgress = appsInProgressSnap.size;
-
     // 4) Service requests need your response (your "need help" listings that are still open)
     final requestsNeedResponseSnap = await fs
         .collection('services')
@@ -299,7 +289,6 @@ class _ActivitySummaryCard extends StatelessWidget {
     return {
       'yourRequestsInProgress': yourRequestsInProgressSnap.size,
       'yourOfferingsInProgress': yourOfferingsInProgressSnap.size,
-      'applicationsInProgress': applicationsInProgress,
       'requestsNeedResponse': requestsNeedResponseSnap.size,
       'offeringsNeedResponse': offeringsNeedResponseSnap.size,
       'hoursEarnedThisWeek': hoursEarnedThisWeek,
@@ -396,23 +385,7 @@ class _ActivitySummaryCard extends StatelessWidget {
             ),
             const SizedBox(height: 4),
 
-            // 3) Your applications in progress → MyApplicationsPage, status = inprogress
-            _summaryRow(
-              context,
-              label: 'Your applications in progress',
-              value: data['applicationsInProgress'] ?? 0,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const MyApplicationsPage(
-                      initialStatusFilter: 'inprogress',
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 4),
+            
 
             // 4) Service requests need your response → requested tab, status = open
             _summaryRow(

@@ -462,7 +462,7 @@ class _AddOfferingPageState extends State<AddOfferingPage> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Time credits represent the effort required for this service.',
+                          'Time credits represent the estimated duration required to complete this service.',
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.black54, // grey
